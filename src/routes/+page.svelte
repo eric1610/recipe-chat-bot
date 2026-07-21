@@ -77,8 +77,11 @@
 				</p>
 
 				<div class="mt-9 flex flex-wrap gap-3">
-					<a class="btn btn-lg preset-filled-primary-500 font-bold" href="#ingredients">
-						See what's cooking <span aria-hidden="true">↓</span>
+					<a
+						class="btn btn-lg preset-filled-primary-500 font-bold"
+						href={`${base}/chat/`}
+					>
+						Start chatting <span aria-hidden="true">→</span>
 					</a>
 					<a
 						class="btn btn-lg preset-outlined-surface-400-600 font-bold"
