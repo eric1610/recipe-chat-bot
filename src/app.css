@@ -6,6 +6,11 @@
 
 @custom-variant dark (&:where([data-mode='dark'], [data-mode='dark'] *));
 
+html[data-theme='modern'][data-mode='dark'] {
+	/* Darken only the app canvas; Modern's violet component surfaces stay intact. */
+	--color-root-bg-dark: var(--recipe-midnight);
+}
+
 html {
 	min-width: 20rem;
 	scroll-behavior: smooth;

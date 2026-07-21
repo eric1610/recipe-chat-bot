@@ -6,9 +6,9 @@ light/dark mode. It is deployed as a static site with GitHub Pages.
 ## Design palette
 
 Skeleton's Modern theme provides the primary pink, secondary cyan, tertiary teal, and violet
-surface scales. The project's additional warm recipe accents are maintained in
-`src/lib/styles/palette.css`: light orange (`#FDBA74`), light red (`#FCA5A5`), and light yellow
-(`#FDE68A`).
+surface scales. The project's additional colors are maintained in `src/lib/styles/palette.css`:
+midnight ink (`#0F172A`) for the dark canvas, light orange (`#FDBA74`), light red (`#FCA5A5`),
+and light yellow (`#FDE68A`).
 
 ## Develop locally
 

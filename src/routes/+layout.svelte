@@ -11,7 +11,7 @@
 		name="description"
 		content="A friendly recipe companion powered by SvelteKit and Skeleton."
 	/>
-	<meta name="theme-color" content="#3d315d" media="(prefers-color-scheme: dark)" />
+	<meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)" />
 	<meta name="theme-color" content="#eee9f8" media="(prefers-color-scheme: light)" />
 	<link rel="icon" href={favicon} />
 </svelte:head>
