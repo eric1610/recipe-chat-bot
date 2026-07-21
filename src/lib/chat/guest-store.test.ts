@@ -1,10 +1,10 @@
-import 'fake-indexeddb/auto';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
 	deleteGuestConversation,
+	listGuestMessages,
 	listGuestConversations,
 	readGuestImport,
-	resetGuestDatabaseForTests,
+	resetGuestStoreForTests,
 	saveGuestConversation
 } from './guest-store';
 
@@ -16,7 +16,7 @@ const conversation = {
 	archivedAt: null
 };
 
-afterEach(() => resetGuestDatabaseForTests());
+afterEach(() => resetGuestStoreForTests());
 
 describe('guest history', () => {
 	it('stores a conversation and its messages transactionally', async () => {
@@ -30,7 +30,14 @@ describe('guest history', () => {
 		}]);
 
 		expect(await listGuestConversations()).toHaveLength(1);
+		expect(await listGuestMessages(conversation.id)).toHaveLength(1);
 		expect((await readGuestImport()).messages).toHaveLength(1);
+	});
+
+	it('keeps guest history in sessionStorage', async () => {
+		await saveGuestConversation(conversation);
+
+		expect(sessionStorage.getItem('recipe-chat-bot-guest-history')).toContain(conversation.id);
 	});
 
 	it('deletes messages with their guest conversation', async () => {

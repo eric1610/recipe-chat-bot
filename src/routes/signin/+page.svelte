@@ -19,10 +19,10 @@
 		<p class="mt-3 leading-7 text-surface-700-300">Sign in to keep recipe conversations and preferences available across devices.</p>
 
 		<div class="mt-8 grid gap-3">
-			<SignIn provider="google" signInPage="/signin" options={{ redirectTo: data.redirectTo }} className="btn btn-lg w-full preset-filled-primary-500 font-bold">
+			<SignIn provider="google" signInPage="signin" options={{ redirectTo: data.redirectTo }} className="btn btn-lg w-full preset-filled-primary-500 font-bold">
 				<span slot="submitButton">Continue with Google</span>
 			</SignIn>
-			<SignIn provider="github" signInPage="/signin" options={{ redirectTo: data.redirectTo }} className="btn btn-lg w-full preset-tonal-surface font-bold">
+			<SignIn provider="github" signInPage="signin" options={{ redirectTo: data.redirectTo }} className="btn btn-lg w-full preset-tonal-surface font-bold">
 				<span slot="submitButton">Continue with GitHub</span>
 			</SignIn>
 		</div>

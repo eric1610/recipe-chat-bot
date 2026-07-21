@@ -1,13 +1,21 @@
 <script lang="ts">
 	import type { Session } from '@auth/sveltekit';
-	import type { ConversationSummary } from '$lib/chat/types';
+	import type { ConversationSummary, StoredConversation, StoredMessage } from '$lib/chat/types';
 	import { base } from '$app/paths';
 	import { invalidateAll } from '$app/navigation';
-	import { clearGuestHistory, countGuestConversations, readGuestImport } from '$lib/chat/guest-store';
+	import {
+		clearGuestHistory,
+		countGuestConversations,
+		listGuestConversations,
+		listGuestMessages,
+		readGuestImport,
+		saveGuestConversation
+	} from '$lib/chat/guest-store';
 	import ChatHistory from '$lib/components/ChatHistory.svelte';
 	import ThemeSwitch from '$lib/components/ThemeSwitch.svelte';
 	import { SignOut } from '@auth/sveltekit/components';
 	import { Dialog } from '@skeletonlabs/skeleton-svelte';
+	import { onMount } from 'svelte';
 
 	let { data, form }: {
 		data: { session: Session | null; conversations: ConversationSummary[] };
@@ -16,12 +24,110 @@
 	let hasGuestHistory = $state(false);
 	let importing = $state(false);
 	let importError = $state('');
+	let currentConversation = $state<StoredConversation | null>(null);
+	let chatMessages = $state<StoredMessage[]>([]);
+	let draft = $state('');
+	let sending = $state(false);
+	let chatError = $state('');
+	let historyRevision = $state(0);
+	let composer: HTMLTextAreaElement;
 
 	$effect(() => {
 		if (data.session) {
 			void countGuestConversations().then((count) => (hasGuestHistory = count > 0));
 		}
 	});
+
+	onMount(() => {
+		if (!data.session) {
+			void listGuestConversations().then(async ([latest]) => {
+				if (latest) await selectConversation(latest);
+			});
+		}
+	});
+
+	function startConversation() {
+		currentConversation = null;
+		chatMessages = [];
+		chatError = '';
+		draft = '';
+		composer?.focus();
+	}
+
+	async function selectConversation(conversation: ConversationSummary) {
+		chatError = '';
+		currentConversation = { ...conversation, archivedAt: null };
+		try {
+			if (data.session) {
+				const response = await fetch(`/api/conversations/${conversation.id}`);
+				if (!response.ok) throw new Error('This conversation could not be loaded.');
+				chatMessages = (await response.json()).messages;
+			} else {
+				chatMessages = await listGuestMessages(conversation.id);
+			}
+		} catch (cause) {
+			chatError = cause instanceof Error ? cause.message : 'This conversation could not be loaded.';
+		}
+	}
+
+	function usePrompt(prompt: string) {
+		draft = prompt;
+		composer?.focus();
+	}
+
+	async function sendMessage(event: SubmitEvent) {
+		event.preventDefault();
+		const content = draft.trim();
+		if (!content || sending) return;
+
+		sending = true;
+		chatError = '';
+		try {
+			if (data.session) {
+				const response = await fetch('/api/conversations', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ conversationId: currentConversation?.id, content })
+				});
+				if (!response.ok) throw new Error((await response.text()) || 'The message could not be saved.');
+				const result = await response.json();
+				currentConversation = currentConversation
+					? { ...currentConversation, updatedAt: result.conversation.updatedAt }
+					: result.conversation;
+				chatMessages = [...chatMessages, result.message];
+				await invalidateAll();
+			} else {
+				const now = new Date().toISOString();
+				const conversation: StoredConversation = currentConversation
+					? { ...currentConversation, updatedAt: now }
+					: {
+							id: crypto.randomUUID(),
+							title: content.length > 80 ? `${content.slice(0, 77)}…` : content,
+							createdAt: now,
+							updatedAt: now,
+							archivedAt: null
+						};
+				const message: StoredMessage = {
+					id: crypto.randomUUID(),
+					conversationId: conversation.id,
+					role: 'user',
+					content,
+					position: chatMessages.length,
+					createdAt: now
+				};
+				await saveGuestConversation(conversation, [message]);
+				currentConversation = conversation;
+				chatMessages = [...chatMessages, message];
+				hasGuestHistory = true;
+				historyRevision += 1;
+			}
+			draft = '';
+		} catch (cause) {
+			chatError = cause instanceof Error ? cause.message : 'The message could not be saved.';
+		} finally {
+			sending = false;
+		}
+	}
 
 	async function importGuestHistory() {
 		importing = true;
@@ -92,7 +198,14 @@
 			</div>
 			<h2 id="desktop-history-title" class="sr-only">Conversation history</h2>
 			<div class="min-h-0 flex-1">
-				<ChatHistory labelledBy="desktop-history-title" authenticated={Boolean(data.session)} conversations={data.conversations} />
+				<ChatHistory
+					labelledBy="desktop-history-title"
+					authenticated={Boolean(data.session)}
+					conversations={data.conversations}
+					refreshKey={historyRevision}
+					onNew={startConversation}
+					onSelect={selectConversation}
+				/>
 			</div>
 		</div>
 	</aside>
@@ -133,7 +246,13 @@
 								</Dialog.CloseTrigger>
 							</div>
 							<div class="min-h-0 flex-1">
-								<ChatHistory authenticated={Boolean(data.session)} conversations={data.conversations} />
+								<ChatHistory
+									authenticated={Boolean(data.session)}
+									conversations={data.conversations}
+									refreshKey={historyRevision}
+									onNew={startConversation}
+									onSelect={selectConversation}
+								/>
 							</div>
 						</Dialog.Content>
 					</Dialog.Positioner>
@@ -151,14 +270,14 @@
 
 				<div class="min-w-0">
 					<p class="truncate font-black text-surface-950-50">Kitchen chat</p>
-					<p class="truncate text-xs text-surface-600-400">Secure connection coming next</p>
+					<p class="truncate text-xs text-surface-600-400">{data.session ? 'Saved to your account' : 'Guest session · local only'}</p>
 				</div>
 			</div>
 
 			<div class="flex items-center gap-2">
 				{#if data.session}
 					<a class="btn preset-tonal-surface hidden font-bold sm:inline-flex" href="/settings">Preferences</a>
-					<SignOut signOutPage="/signout" options={{ redirectTo: '/' }} className="btn preset-tonal-surface font-bold">
+					<SignOut signOutPage="signout" options={{ redirectTo: '/' }} className="btn preset-tonal-surface font-bold">
 						<span slot="submitButton">Sign out</span>
 					</SignOut>
 				{:else}
@@ -185,54 +304,71 @@
 				</section>
 			{/if}
 			{#if form?.deleteError}<p class="mx-auto mt-4 w-full max-w-4xl rounded-container bg-recipe-red p-3 text-sm text-recipe-red-ink" role="alert">{form.deleteError}</p>{/if}
-			<section class="mx-auto flex w-full max-w-4xl flex-1 flex-col justify-center px-4 py-12 sm:px-8 sm:py-16">
-				<div class="mx-auto w-full max-w-3xl text-center">
-					<span
-						class="mx-auto grid size-16 place-items-center rounded-container bg-primary-500 text-2xl font-black text-primary-contrast-500 shadow-xl shadow-primary-500/20"
-						aria-hidden="true"
-						>R</span
-					>
-					<p class="badge preset-tonal-secondary mx-auto mt-6 w-fit px-3 py-1.5">Chat workspace preview</p>
-					<h1 id="chat-title" class="mt-5 text-4xl font-black tracking-[-0.035em] text-surface-950-50 sm:text-5xl">
-						What would you like to cook?
-					</h1>
-					<p class="mx-auto mt-4 max-w-2xl text-base leading-7 text-surface-700-300 sm:text-lg">
-						Soon, you’ll be able to ask for recipes, substitutions, and practical guidance based on
-						what is already in your kitchen{data.session ? ' and your saved preferences' : ''}.
-					</p>
-				</div>
-
-				<div class="mt-10 grid gap-3 md:grid-cols-3" aria-label="Example recipe prompts">
-					{#each promptIdeas as idea}
-						<div class="card bg-surface-50-950 p-4 text-left ring-1 ring-surface-300-700 sm:p-5">
-							<span class={`badge px-2.5 py-1 ${idea.accent}`}>{idea.label}</span>
-							<p class="mt-4 text-sm leading-6 text-surface-700-300">“{idea.prompt}”</p>
+			<section class="mx-auto flex w-full max-w-4xl flex-1 flex-col px-4 py-10 sm:px-8 sm:py-14">
+				{#if chatMessages.length === 0}
+					<div class="my-auto">
+						<div class="mx-auto w-full max-w-3xl text-center">
+							<span
+								class="mx-auto grid size-16 place-items-center rounded-container bg-primary-500 text-2xl font-black text-primary-contrast-500 shadow-xl shadow-primary-500/20"
+								aria-hidden="true"
+								>R</span
+							>
+							<p class="badge preset-tonal-secondary mx-auto mt-6 w-fit px-3 py-1.5">Recipe conversation</p>
+							<h1 id="chat-title" class="mt-5 text-4xl font-black tracking-[-0.035em] text-surface-950-50 sm:text-5xl">
+								What would you like to cook?
+							</h1>
+							<p class="mx-auto mt-4 max-w-2xl text-base leading-7 text-surface-700-300 sm:text-lg">
+								Start a recipe conversation{data.session ? ' using your saved preferences' : ' without creating an account'}.
+							</p>
 						</div>
-					{/each}
-				</div>
+
+						<div class="mt-10 grid gap-3 md:grid-cols-3" aria-label="Example recipe prompts">
+							{#each promptIdeas as idea}
+								<button class="card bg-surface-50-950 p-4 text-left ring-1 ring-surface-300-700 transition hover:-translate-y-0.5 hover:ring-primary-500 sm:p-5" type="button" onclick={() => usePrompt(idea.prompt)}>
+									<span class={`badge px-2.5 py-1 ${idea.accent}`}>{idea.label}</span>
+									<p class="mt-4 text-sm leading-6 text-surface-700-300">“{idea.prompt}”</p>
+								</button>
+							{/each}
+						</div>
+					</div>
+				{:else}
+					<h1 id="chat-title" class="sr-only">{currentConversation?.title ?? 'Recipe conversation'}</h1>
+					<div class="grid gap-5" aria-live="polite">
+						{#each chatMessages as message (message.id)}
+							<article class={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+								<div class={`max-w-[85%] rounded-container px-4 py-3 text-sm leading-6 sm:max-w-[75%] ${message.role === 'user' ? 'bg-primary-500 text-primary-contrast-500' : 'bg-surface-100-900 text-surface-950-50 ring-1 ring-surface-300-700'}`}>
+									<p class="whitespace-pre-wrap">{message.content}</p>
+								</div>
+							</article>
+						{/each}
+					</div>
+				{/if}
+				{#if chatError}<p class="mt-6 rounded-container bg-recipe-red p-3 text-sm font-bold text-recipe-red-ink" role="alert">{chatError}</p>{/if}
 			</section>
 
 			<div class="sticky bottom-0 z-10 border-t border-surface-300-700 bg-surface-50/90 p-4 backdrop-blur-xl dark:bg-recipe-midnight/90 sm:p-6">
-				<form class="mx-auto max-w-4xl" aria-describedby="chat-availability">
+				<form class="mx-auto max-w-4xl" aria-describedby="chat-availability" onsubmit={sendMessage}>
 					<label class="sr-only" for="chat-message">Message Recipe Chat Bot</label>
 					<div class="flex items-end gap-3 rounded-container bg-surface-50-950 p-3 ring-1 ring-surface-300-700">
 						<textarea
 							id="chat-message"
 							class="min-h-14 flex-1 resize-none bg-transparent px-2 py-2 text-surface-950-50 outline-none placeholder:text-surface-600-400"
-							placeholder="Secure recipe chat is coming soon"
+							placeholder="Ask about a recipe, substitution, or meal idea"
 							rows="1"
-							disabled
+							bind:this={composer}
+							bind:value={draft}
+							maxlength="50000"
 						></textarea>
-						<button class="btn-icon preset-filled-primary-500" type="submit" disabled aria-label="Send message">
+						<button class="btn-icon preset-filled-primary-500" type="submit" disabled={sending || !draft.trim()} aria-label="Send message">
 							<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 								<path d="m5 12 14-7-4 14-3-6-7-1Z" />
 							</svg>
 						</button>
 					</div>
 					<p id="chat-availability" class="mt-3 text-center text-xs leading-5 text-surface-600-400">
-						Messaging is disabled until the AI backend is connected. {data.session
-							? 'Your account and history storage are ready.'
-							: 'Future guest history will stay in IndexedDB until you choose to import it.'}
+						{data.session
+							? 'Messages are saved to your account. AI responses will be enabled when the recipe model is connected.'
+							: 'Guest messages are stored only in this browser tab and will be lost when the session ends. Sign in to keep them.'}
 					</p>
 				</form>
 			</div>
