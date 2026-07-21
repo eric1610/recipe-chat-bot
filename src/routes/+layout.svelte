@@ -9,9 +9,10 @@
 	<title>Recipe Chat Bot</title>
 	<meta
 		name="description"
-		content="A simple SvelteKit foundation for a helpful recipe companion."
+		content="A friendly recipe companion powered by SvelteKit and Skeleton."
 	/>
-	<meta name="theme-color" content="#f4f4f2" />
+	<meta name="theme-color" content="#3d315d" media="(prefers-color-scheme: dark)" />
+	<meta name="theme-color" content="#eee9f8" media="(prefers-color-scheme: light)" />
 	<link rel="icon" href={favicon} />
 </svelte:head>
 

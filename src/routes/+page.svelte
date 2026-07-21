@@ -1,171 +1,154 @@
 <script lang="ts">
 	import { base } from '$app/paths';
+	import ThemeSwitch from '$lib/components/ThemeSwitch.svelte';
+
+	const features = [
+		{
+			title: 'Cook from what you have',
+			copy: 'Turn the ingredients already in your kitchen into a practical place to begin.',
+			accent: 'bg-recipe-orange text-recipe-orange-ink',
+			icon: '01'
+		},
+		{
+			title: 'Keep every step clear',
+			copy: 'Get calm, concise guidance that is easy to follow while your hands are busy.',
+			accent: 'bg-recipe-red text-recipe-red-ink',
+			icon: '02'
+		},
+		{
+			title: 'Make it your own',
+			copy: 'Adapt recipes around preferences, dietary needs, portions, and available time.',
+			accent: 'bg-recipe-yellow text-recipe-yellow-ink',
+			icon: '03'
+		}
+	];
 </script>
 
 <svelte:head>
-	<title>Recipe Chat Bot — A simple Svelte foundation</title>
+	<title>Recipe Chat Bot — A thoughtful kitchen companion</title>
 </svelte:head>
 
-<div class="page-shell">
-	<header class="site-header">
-		<a class="brand" href={`${base}/`} aria-label="Recipe Chat Bot home">Recipe Chat Bot</a>
-		<p class="status"><span aria-hidden="true"></span>Svelte foundation</p>
+<div class="relative min-h-svh overflow-hidden">
+	<div
+		class="pointer-events-none absolute -top-32 left-[55%] -z-10 size-[34rem] rounded-full bg-primary-500/20 blur-3xl dark:bg-primary-500/12"
+		aria-hidden="true"
+	></div>
+	<div
+		class="pointer-events-none absolute top-[30rem] -left-48 -z-10 size-[30rem] rounded-full bg-secondary-500/18 blur-3xl dark:bg-secondary-500/10"
+		aria-hidden="true"
+	></div>
+
+	<header class="mx-auto flex w-full max-w-7xl items-center justify-between gap-5 px-5 py-6 sm:px-8 lg:px-12">
+		<a class="flex items-center gap-3 font-bold text-surface-950-50 no-underline" href={`${base}/`}>
+			<span
+				class="grid size-10 place-items-center rounded-container bg-primary-500 text-lg text-primary-contrast-500 shadow-lg shadow-primary-500/20"
+				aria-hidden="true"
+				>R</span
+			>
+			<span>Recipe Chat Bot</span>
+		</a>
+
+		<nav class="flex items-center gap-3 sm:gap-5" aria-label="Primary navigation">
+			<a
+				class="hidden text-sm font-semibold text-surface-700-300 no-underline transition-colors hover:text-primary-500 sm:inline"
+				href="https://github.com/eric1610/recipe-chat-bot"
+				>GitHub</a
+			>
+			<ThemeSwitch />
+		</nav>
 	</header>
 
 	<main>
-		<section aria-labelledby="page-title">
-			<p class="eyebrow">A small beginning</p>
-			<h1 id="page-title">A clean place to start.</h1>
-			<p class="intro">
-				This lightweight SvelteKit foundation is ready to grow into a thoughtful recipe
-				companion.
-			</p>
-			<a class="repository-link" href="https://github.com/eric1610/recipe-chat-bot">
-				View the repository <span aria-hidden="true">↗</span>
-			</a>
+		<section
+			class="mx-auto grid w-full max-w-7xl items-center gap-12 px-5 py-16 sm:px-8 sm:py-24 lg:grid-cols-[1.08fr_0.92fr] lg:px-12 lg:py-28"
+			aria-labelledby="page-title"
+		>
+			<div>
+				<p class="badge preset-tonal-primary mb-6 w-fit px-3 py-1.5">Skeleton 5 · SvelteKit</p>
+				<h1
+					id="page-title"
+					class="max-w-3xl text-5xl leading-[0.98] font-black tracking-[-0.04em] text-surface-950-50 sm:text-6xl lg:text-7xl"
+				>
+					A brighter way to decide <span class="text-primary-500">what's for dinner.</span>
+				</h1>
+				<p class="mt-7 max-w-2xl text-lg leading-8 text-surface-700-300 sm:text-xl">
+					A friendly starting point for recipes, substitutions, and step-by-step help—built to
+					make everyday cooking feel less complicated.
+				</p>
+
+				<div class="mt-9 flex flex-wrap gap-3">
+					<a class="btn btn-lg preset-filled-primary-500 font-bold" href="#ingredients">
+						See what's cooking <span aria-hidden="true">↓</span>
+					</a>
+					<a
+						class="btn btn-lg preset-outlined-surface-400-600 font-bold"
+						href="https://github.com/eric1610/recipe-chat-bot"
+					>
+						View the repository <span aria-hidden="true">↗</span>
+					</a>
+				</div>
+
+				<div class="mt-10 flex flex-wrap gap-x-6 gap-y-3 text-sm font-semibold text-surface-700-300">
+					<span class="flex items-center gap-2"><span class="size-2 rounded-full bg-secondary-500"></span>Adaptive theme</span>
+					<span class="flex items-center gap-2"><span class="size-2 rounded-full bg-tertiary-500"></span>Accessible controls</span>
+					<span class="flex items-center gap-2"><span class="size-2 rounded-full bg-recipe-yellow"></span>Warm accents</span>
+				</div>
+			</div>
+
+			<aside class="card preset-tonal-surface relative p-4 shadow-2xl shadow-surface-950/15 sm:p-6" aria-label="Recipe preview">
+				<div class="rounded-container bg-surface-50-950 p-5 ring-1 ring-surface-300-700 sm:p-7">
+					<div class="flex items-start justify-between gap-4">
+						<div>
+							<p class="text-xs font-bold tracking-[0.16em] text-primary-500 uppercase">Tonight's idea</p>
+							<h2 class="mt-2 text-2xl font-black text-surface-950-50 sm:text-3xl">Golden tomato pasta</h2>
+						</div>
+						<span class="badge bg-recipe-yellow px-2.5 py-1 text-recipe-yellow-ink">25 min</span>
+					</div>
+
+					<div class="mt-7 grid grid-cols-3 gap-2" aria-label="Recipe qualities">
+						<div class="rounded-container bg-recipe-orange p-3 text-recipe-orange-ink">
+							<strong class="block text-lg">Easy</strong><span class="text-xs">one pan</span>
+						</div>
+						<div class="rounded-container bg-recipe-red p-3 text-recipe-red-ink">
+							<strong class="block text-lg">Rich</strong><span class="text-xs">tomato</span>
+						</div>
+						<div class="rounded-container bg-recipe-yellow p-3 text-recipe-yellow-ink">
+							<strong class="block text-lg">Bright</strong><span class="text-xs">lemon</span>
+						</div>
+					</div>
+
+					<div class="mt-7 border-t border-surface-300-700 pt-6">
+						<p class="text-sm font-bold text-surface-950-50">Start with what you have</p>
+						<div class="mt-3 flex flex-wrap gap-2">
+							<span class="chip preset-tonal-primary">tomatoes</span>
+							<span class="chip preset-tonal-secondary">pasta</span>
+							<span class="chip preset-tonal-tertiary">herbs</span>
+						</div>
+					</div>
+				</div>
+			</aside>
+		</section>
+
+		<section id="ingredients" class="mx-auto w-full max-w-7xl scroll-mt-8 px-5 pb-20 sm:px-8 lg:px-12 lg:pb-28" aria-labelledby="feature-title">
+			<div class="mb-8 max-w-2xl">
+				<p class="text-sm font-bold tracking-[0.16em] text-secondary-700-300 uppercase">Built for real kitchens</p>
+				<h2 id="feature-title" class="mt-3 text-3xl font-black text-surface-950-50 sm:text-4xl">A helpful foundation, ready to grow.</h2>
+			</div>
+
+			<div class="grid gap-4 md:grid-cols-3">
+				{#each features as feature}
+					<article class="card bg-surface-50-950 p-6 ring-1 ring-surface-300-700 sm:p-7">
+						<span class={`grid size-11 place-items-center rounded-token text-sm font-black ${feature.accent}`}>{feature.icon}</span>
+						<h3 class="mt-6 text-xl font-black text-surface-950-50">{feature.title}</h3>
+						<p class="mt-3 leading-7 text-surface-700-300">{feature.copy}</p>
+					</article>
+				{/each}
+			</div>
 		</section>
 	</main>
 
-	<footer>
-		<p>Built with SvelteKit.</p>
+	<footer class="mx-auto flex w-full max-w-7xl flex-col gap-3 border-t border-surface-300-700 px-5 py-8 text-sm text-surface-700-300 sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-12">
+		<p>Recipe Chat Bot · Built with SvelteKit and Skeleton 5.</p>
 		<p>Toronto, Canada</p>
 	</footer>
 </div>
-
-<style>
-	.page-shell {
-		display: flex;
-		box-sizing: border-box;
-		flex-direction: column;
-		width: min(100%, 80rem);
-		min-height: 100vh;
-		min-height: 100svh;
-		margin: 0 auto;
-		padding: clamp(1.25rem, 4vw, 3rem);
-	}
-
-	.site-header,
-	footer {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 1rem;
-		font-size: 0.75rem;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-	}
-
-	.site-header {
-		padding-bottom: 1.5rem;
-		border-bottom: 1px solid #d9d9d5;
-	}
-
-	.brand {
-		font-weight: 700;
-		text-decoration: none;
-	}
-
-	.status {
-		display: flex;
-		align-items: center;
-		gap: 0.55rem;
-		margin: 0;
-		color: #5f5f5b;
-	}
-
-	.status span {
-		width: 0.45rem;
-		height: 0.45rem;
-		border-radius: 50%;
-		background: #171717;
-	}
-
-	main {
-		display: grid;
-		flex: 1;
-		place-items: center start;
-		padding-block: clamp(5rem, 15vh, 10rem);
-	}
-
-	section {
-		max-width: 52rem;
-	}
-
-	.eyebrow {
-		margin: 0 0 1.25rem;
-		color: #686864;
-		font-size: 0.75rem;
-		font-weight: 600;
-		letter-spacing: 0.14em;
-		text-transform: uppercase;
-	}
-
-	h1 {
-		max-width: 12ch;
-		margin: 0;
-		font-size: clamp(3.25rem, 9vw, 7.75rem);
-		font-weight: 500;
-		letter-spacing: -0.065em;
-		line-height: 0.92;
-	}
-
-	.intro {
-		max-width: 37rem;
-		margin: clamp(2rem, 5vw, 3.5rem) 0 0;
-		color: #4c4c49;
-		font-size: clamp(1rem, 2vw, 1.25rem);
-		line-height: 1.65;
-	}
-
-	.repository-link {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.5rem;
-		margin-top: 2rem;
-		padding-bottom: 0.25rem;
-		border-bottom: 1px solid currentColor;
-		font-size: 0.875rem;
-		font-weight: 650;
-		text-decoration: none;
-	}
-
-	.repository-link span {
-		transition: transform 160ms ease;
-	}
-
-	.repository-link:hover span {
-		transform: translate(0.15rem, -0.15rem);
-	}
-
-	footer {
-		padding-top: 1.5rem;
-		border-top: 1px solid #d9d9d5;
-		color: #686864;
-	}
-
-	footer p {
-		margin: 0;
-	}
-
-	@media (max-width: 36rem) {
-		.site-header,
-		footer {
-			align-items: flex-start;
-			flex-direction: column;
-		}
-
-		.status {
-			font-size: 0.65rem;
-		}
-
-		h1 {
-			font-size: clamp(3.2rem, 18vw, 5rem);
-		}
-	}
-
-	@media (prefers-reduced-motion: reduce) {
-		.repository-link span {
-			transition: none;
-		}
-	}
-</style>

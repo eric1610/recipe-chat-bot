@@ -1,0 +1,24 @@
+/*
+ * Recipe Chat Bot accent palette
+ *
+ * Skeleton's Modern theme owns the primary pink, secondary cyan, tertiary teal,
+ * and violet surface scales. These warm accents supplement that palette without
+ * overriding Skeleton's tokens, keeping future framework upgrades straightforward.
+ */
+:root {
+	--recipe-orange: #fdba74;
+	--recipe-orange-ink: #7c2d12;
+	--recipe-red: #fca5a5;
+	--recipe-red-ink: #7f1d1d;
+	--recipe-yellow: #fde68a;
+	--recipe-yellow-ink: #713f12;
+}
+
+@theme inline {
+	--color-recipe-orange: var(--recipe-orange);
+	--color-recipe-orange-ink: var(--recipe-orange-ink);
+	--color-recipe-red: var(--recipe-red);
+	--color-recipe-red-ink: var(--recipe-red-ink);
+	--color-recipe-yellow: var(--recipe-yellow);
+	--color-recipe-yellow-ink: var(--recipe-yellow-ink);
+}

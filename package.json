@@ -9,14 +9,18 @@
 		"build": "vite build",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
-		"check": "svelte-kit sync && tsc --noEmit --project ./tsconfig.json",
-		"check:watch": "svelte-kit sync && tsc --noEmit --project ./tsconfig.json --watch"
+		"check": "svelte-kit sync && pnpm --package=typescript@6.0.3 --package=svelte-check@4.7.3 dlx svelte-check --tsconfig ./tsconfig.json",
+		"check:watch": "svelte-kit sync && pnpm --package=typescript@6.0.3 --package=svelte-check@4.7.3 dlx svelte-check --tsconfig ./tsconfig.json --watch"
 	},
 	"devDependencies": {
+		"@skeletonlabs/skeleton": "^5.0.0",
+		"@skeletonlabs/skeleton-svelte": "^5.0.0",
 		"@sveltejs/adapter-static": "^3.0.10",
 		"@sveltejs/kit": "^2.70.1",
 		"@sveltejs/vite-plugin-svelte": "^7.2.0",
+		"@tailwindcss/vite": "^4.3.3",
 		"svelte": "^5.56.6",
+		"tailwindcss": "^4.3.3",
 		"typescript": "^7.0.2",
 		"vite": "^8.1.5"
 	}
