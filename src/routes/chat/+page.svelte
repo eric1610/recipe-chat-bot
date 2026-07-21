@@ -1,8 +1,47 @@
 <script lang="ts">
+	import type { Session } from '@auth/sveltekit';
+	import type { ConversationSummary } from '$lib/chat/types';
 	import { base } from '$app/paths';
+	import { invalidateAll } from '$app/navigation';
+	import { clearGuestHistory, countGuestConversations, readGuestImport } from '$lib/chat/guest-store';
 	import ChatHistory from '$lib/components/ChatHistory.svelte';
 	import ThemeSwitch from '$lib/components/ThemeSwitch.svelte';
+	import { SignOut } from '@auth/sveltekit/components';
 	import { Dialog } from '@skeletonlabs/skeleton-svelte';
+
+	let { data, form }: {
+		data: { session: Session | null; conversations: ConversationSummary[] };
+		form?: { deleteError?: string } | null;
+	} = $props();
+	let hasGuestHistory = $state(false);
+	let importing = $state(false);
+	let importError = $state('');
+
+	$effect(() => {
+		if (data.session) {
+			void countGuestConversations().then((count) => (hasGuestHistory = count > 0));
+		}
+	});
+
+	async function importGuestHistory() {
+		importing = true;
+		importError = '';
+		try {
+			const response = await fetch('/api/conversations/import', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify(await readGuestImport())
+			});
+			if (!response.ok) throw new Error((await response.json()).message ?? 'Import failed.');
+			await clearGuestHistory();
+			hasGuestHistory = false;
+			await invalidateAll();
+		} catch (cause) {
+			importError = cause instanceof Error ? cause.message : 'Guest history could not be imported.';
+		} finally {
+			importing = false;
+		}
+	}
 
 	const promptIdeas = [
 		{
@@ -53,7 +92,7 @@
 			</div>
 			<h2 id="desktop-history-title" class="sr-only">Conversation history</h2>
 			<div class="min-h-0 flex-1">
-				<ChatHistory labelledBy="desktop-history-title" />
+				<ChatHistory labelledBy="desktop-history-title" authenticated={Boolean(data.session)} conversations={data.conversations} />
 			</div>
 		</div>
 	</aside>
@@ -94,7 +133,7 @@
 								</Dialog.CloseTrigger>
 							</div>
 							<div class="min-h-0 flex-1">
-								<ChatHistory />
+								<ChatHistory authenticated={Boolean(data.session)} conversations={data.conversations} />
 							</div>
 						</Dialog.Content>
 					</Dialog.Positioner>
@@ -116,10 +155,36 @@
 				</div>
 			</div>
 
-			<ThemeSwitch />
+			<div class="flex items-center gap-2">
+				{#if data.session}
+					<a class="btn preset-tonal-surface hidden font-bold sm:inline-flex" href="/settings">Preferences</a>
+					<SignOut signOutPage="/signout" options={{ redirectTo: '/' }} className="btn preset-tonal-surface font-bold">
+						<span slot="submitButton">Sign out</span>
+					</SignOut>
+				{:else}
+					<a class="btn preset-filled-primary-500 font-bold" href="/signin?redirectTo=/chat">Sign in</a>
+				{/if}
+				<ThemeSwitch />
+			</div>
 		</header>
 
 		<main class="flex min-h-0 flex-1 flex-col" aria-labelledby="chat-title">
+			{#if data.session && hasGuestHistory}
+				<section class="border-b border-surface-300-700 bg-secondary-500/10 px-4 py-4 sm:px-6" aria-label="Guest history import">
+					<div class="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-3">
+						<div>
+							<p class="font-bold text-surface-950-50">Bring your guest history with you?</p>
+							<p class="mt-1 text-sm text-surface-700-300">Nothing leaves this browser until you choose to import it.</p>
+						</div>
+						<div class="flex items-center gap-2">
+							<button class="btn preset-filled-primary-500 font-bold" type="button" disabled={importing} onclick={importGuestHistory}>{importing ? 'Importing…' : 'Import history'}</button>
+							<button class="btn preset-tonal-surface" type="button" onclick={() => (hasGuestHistory = false)}>Not now</button>
+						</div>
+						{#if importError}<p class="w-full text-sm font-bold text-error-700-300" role="alert">{importError}</p>{/if}
+					</div>
+				</section>
+			{/if}
+			{#if form?.deleteError}<p class="mx-auto mt-4 w-full max-w-4xl rounded-container bg-recipe-red p-3 text-sm text-recipe-red-ink" role="alert">{form.deleteError}</p>{/if}
 			<section class="mx-auto flex w-full max-w-4xl flex-1 flex-col justify-center px-4 py-12 sm:px-8 sm:py-16">
 				<div class="mx-auto w-full max-w-3xl text-center">
 					<span
@@ -133,7 +198,7 @@
 					</h1>
 					<p class="mx-auto mt-4 max-w-2xl text-base leading-7 text-surface-700-300 sm:text-lg">
 						Soon, you’ll be able to ask for recipes, substitutions, and practical guidance based on
-						what is already in your kitchen.
+						what is already in your kitchen{data.session ? ' and your saved preferences' : ''}.
 					</p>
 				</div>
 
@@ -165,8 +230,9 @@
 						</button>
 					</div>
 					<p id="chat-availability" class="mt-3 text-center text-xs leading-5 text-surface-600-400">
-						Messaging is disabled until a secure backend is connected. No conversation data is being
-						collected or stored.
+						Messaging is disabled until the AI backend is connected. {data.session
+							? 'Your account and history storage are ready.'
+							: 'Future guest history will stay in IndexedDB until you choose to import it.'}
 					</p>
 				</form>
 			</div>

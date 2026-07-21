@@ -10,18 +10,34 @@
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && pnpm --package=typescript@6.0.3 --package=svelte-check@4.7.3 dlx svelte-check --tsconfig ./tsconfig.json",
-		"check:watch": "svelte-kit sync && pnpm --package=typescript@6.0.3 --package=svelte-check@4.7.3 dlx svelte-check --tsconfig ./tsconfig.json --watch"
+		"check:watch": "svelte-kit sync && pnpm --package=typescript@6.0.3 --package=svelte-check@4.7.3 dlx svelte-check --tsconfig ./tsconfig.json --watch",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"db:generate": "drizzle-kit generate",
+		"db:migrate": "drizzle-kit migrate",
+		"db:check": "drizzle-kit check"
 	},
 	"devDependencies": {
 		"@skeletonlabs/skeleton": "^5.0.0",
 		"@skeletonlabs/skeleton-svelte": "^5.0.0",
-		"@sveltejs/adapter-static": "^3.0.10",
+		"@sveltejs/adapter-vercel": "6.3.4",
 		"@sveltejs/kit": "^2.70.1",
 		"@sveltejs/vite-plugin-svelte": "^7.2.0",
 		"@tailwindcss/vite": "^4.3.3",
+		"dotenv": "^17.4.2",
+		"drizzle-kit": "0.31.10",
+		"fake-indexeddb": "^6.2.5",
 		"svelte": "^5.56.6",
 		"tailwindcss": "^4.3.3",
 		"typescript": "^7.0.2",
-		"vite": "^8.1.5"
+		"vite": "^8.1.5",
+		"vitest": "^4.1.10"
+	},
+	"dependencies": {
+		"@auth/drizzle-adapter": "1.11.3",
+		"@auth/sveltekit": "1.11.3",
+		"@neondatabase/serverless": "1.1.0",
+		"drizzle-orm": "0.45.2",
+		"idb": "8.0.3"
 	}
 }

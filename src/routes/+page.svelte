@@ -54,6 +54,7 @@
 				href="https://github.com/eric1610/recipe-chat-bot"
 				>GitHub</a
 			>
+			<a class="btn preset-tonal-surface font-bold" href="/signin?redirectTo=/chat">Sign in</a>
 			<ThemeSwitch />
 		</nav>
 	</header>

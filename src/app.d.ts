@@ -1,12 +1,18 @@
-// See https://svelte.dev/docs/kit/types#app.d.ts
-// for information about these interfaces
+import type { DefaultSession } from '@auth/sveltekit';
+
 declare global {
 	namespace App {
-		// interface Error {}
-		// interface Locals {}
-		// interface PageData {}
-		// interface PageState {}
-		// interface Platform {}
+		interface Locals {
+			auth: () => Promise<import('@auth/sveltekit').Session | null>;
+		}
+	}
+}
+
+declare module '@auth/sveltekit' {
+	interface Session {
+		user: {
+			id: string;
+		} & DefaultSession['user'];
 	}
 }
 

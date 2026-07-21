@@ -1,2 +1,7 @@
+allowBuilds:
+  esbuild: true
 minimumReleaseAgeExclude:
   - '@sveltejs/kit@2.70.1'
+  - '@auth/core@0.41.3'
+  - '@auth/drizzle-adapter@1.11.3'
+  - '@auth/sveltekit@1.11.3'

@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1784658498176,
+      "tag": "0000_gorgeous_mikhail_rasputin",
+      "breakpoints": true
+    }
+  ]
+}
