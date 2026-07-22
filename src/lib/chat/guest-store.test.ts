@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	deleteGuestConversation,
 	listGuestMessages,
@@ -17,9 +17,42 @@ const conversation = {
 	archivedAt: null
 };
 
+class MemoryStorage implements Storage {
+	readonly #entries = new Map<string, string>();
+
+	get length() {
+		return this.#entries.size;
+	}
+
+	clear() {
+		this.#entries.clear();
+	}
+
+	getItem(key: string) {
+		return this.#entries.get(key) ?? null;
+	}
+
+	key(index: number) {
+		return [...this.#entries.keys()][index] ?? null;
+	}
+
+	removeItem(key: string) {
+		this.#entries.delete(key);
+	}
+
+	setItem(key: string, value: string) {
+		this.#entries.set(key, value);
+	}
+}
+
+beforeEach(() => {
+	vi.stubGlobal('sessionStorage', new MemoryStorage());
+});
+
 afterEach(async () => {
 	vi.useRealTimers();
 	await resetGuestStoreForTests();
+	vi.unstubAllGlobals();
 });
 
 describe('guest history', () => {
