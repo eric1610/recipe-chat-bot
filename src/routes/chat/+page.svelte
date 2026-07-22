@@ -54,6 +54,13 @@
 		composer?.focus();
 	}
 
+	async function clearGuestSession() {
+		await clearGuestHistory();
+		hasGuestHistory = false;
+		historyRevision += 1;
+		startConversation();
+	}
+
 	async function selectConversation(conversation: ConversationSummary) {
 		chatError = '';
 		currentConversation = { ...conversation, archivedAt: null };
@@ -205,6 +212,7 @@
 					refreshKey={historyRevision}
 					onNew={startConversation}
 					onSelect={selectConversation}
+					onClearGuest={clearGuestSession}
 				/>
 			</div>
 		</div>
@@ -252,6 +260,7 @@
 									refreshKey={historyRevision}
 									onNew={startConversation}
 									onSelect={selectConversation}
+									onClearGuest={clearGuestSession}
 								/>
 							</div>
 						</Dialog.Content>
@@ -357,7 +366,7 @@
 							rows="1"
 							bind:this={composer}
 							bind:value={draft}
-							maxlength="50000"
+							maxlength="8000"
 						></textarea>
 						<button class="btn-icon preset-filled-primary-500" type="submit" disabled={sending || !draft.trim()} aria-label="Send message">
 							<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -368,7 +377,7 @@
 					<p id="chat-availability" class="mt-3 text-center text-xs leading-5 text-surface-600-400">
 						{data.session
 							? 'Messages are saved to your account. AI responses will be enabled when the recipe model is connected.'
-							: 'Guest messages are stored only in this browser tab and will be lost when the session ends. Sign in to keep them.'}
+							: 'Guest messages stay in this tab, expire after 12 hours without activity, and may survive browser session restore. Sign in to keep them.'}
 					</p>
 				</form>
 			</div>

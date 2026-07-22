@@ -56,8 +56,12 @@ export const actions: Actions = {
 		return { preferencesSaved: true };
 	},
 
-	deleteAccount: async ({ locals, cookies }) => {
+	deleteAccount: async ({ request, locals, cookies }) => {
 		const userId = await requireUserId(locals);
+		const formData = await request.formData();
+		if (formData.get('confirmation') !== 'DELETE MY ACCOUNT') {
+			return fail(400, { deleteError: 'Type DELETE MY ACCOUNT to confirm permanent deletion.' });
+		}
 		await getDatabase().delete(users).where(eq(users.id, userId));
 
 		for (const cookie of cookies.getAll()) {

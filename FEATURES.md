@@ -53,8 +53,13 @@ product (MVP), and possible enhancements beyond the MVP.
 - [x] Neon Postgres production database
 - [x] Vercel production deployment
 - [x] Sensitive production environment variables managed outside the repository
-- [x] GitHub Actions validation for checks and tests
-- [x] Automated tests for guest storage and guest-history import validation
+- [x] Production-only Vercel secrets and least-privileged Neon runtime credentials
+- [x] Hashed database session tokens without retained OAuth provider tokens
+- [x] Same-origin JSON request enforcement, payload limits, per-user rate limits, and storage quotas
+- [x] Security headers and Content Security Policy
+- [x] GitHub Actions secret scanning, checks, tests, and dependency auditing
+- [x] Automated dependency updates with pinned GitHub Action revisions
+- [x] Automated tests for guest storage, request guards, session hashing, redirects, and import validation
 
 ## Focused MVP
 
@@ -101,9 +106,9 @@ connecting the existing conversation experience to an AI model.
 
 ### Security, reliability, and operations
 
-- [ ] Validate and limit message size, conversation context, and accepted request payloads
-- [ ] Add per-user and per-session rate limiting and abuse protection
-- [ ] Enforce ownership checks for every conversation and message operation
+- [x] Validate and limit message size, conversation context, and accepted request payloads
+- [x] Add per-user rate limiting, storage quotas, and abuse protection for authenticated persistence
+- [x] Enforce ownership checks for every conversation and message operation
 - [ ] Add tests for anonymous chat, authenticated persistence, authorization boundaries, imports,
   streaming, cancellation, retries, and AI failures
 - [ ] Add structured production logging without recording secrets or unnecessary conversation data

@@ -1,5 +1,8 @@
 allowBuilds:
   esbuild: true
+overrides:
+  '@esbuild-kit/core-utils>esbuild': 0.25.0
+  cookie: 0.7.2
 minimumReleaseAgeExclude:
   - '@sveltejs/kit@2.70.1'
   - '@auth/core@0.41.3'

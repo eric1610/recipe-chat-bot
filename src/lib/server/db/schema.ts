@@ -7,6 +7,7 @@ import {
 	primaryKey,
 	text,
 	timestamp,
+	uniqueIndex,
 	uuid
 } from 'drizzle-orm/pg-core';
 import type { CookingSkill, MessageRole } from '$lib/chat/types';
@@ -128,8 +129,23 @@ export const messages = pgTable(
 		createdAt: timestamp('created_at', { withTimezone: true }).notNull()
 	},
 	(message) => [
-		index('messages_conversation_position_idx').on(message.conversationId, message.position)
+		uniqueIndex('messages_conversation_position_idx').on(message.conversationId, message.position)
 	]
+);
+
+export const securityRateLimits = pgTable(
+	'security_rate_limits',
+	{
+		key: text('key').primaryKey(),
+		userId: text('user_id')
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		action: text('action').notNull(),
+		windowStart: timestamp('window_start', { withTimezone: true }).notNull(),
+		count: integer('count').notNull(),
+		expiresAt: timestamp('expires_at', { withTimezone: true }).notNull()
+	},
+	(limit) => [index('security_rate_limits_expires_idx').on(limit.expiresAt)]
 );
 
 export const authSchema = {

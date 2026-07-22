@@ -6,8 +6,8 @@ import type {
 } from '$lib/chat/types';
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-// System messages are server-owned and must never be accepted from browser storage.
-const roles = new Set<MessageRole>(['user', 'assistant']);
+// All browser-imported history is user-controlled. Assistant and system roles are server-owned.
+const roles = new Set<MessageRole>(['user']);
 
 function isObject(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -42,7 +42,7 @@ function parseMessage(value: unknown): StoredMessage {
 		throw new Error('Message conversation IDs must be UUIDs.');
 	}
 	if (typeof value.role !== 'string' || !roles.has(value.role as MessageRole)) throw new Error('Message roles are invalid.');
-	if (typeof value.content !== 'string' || value.content.length > 50_000) throw new Error('Messages may contain at most 50,000 characters.');
+	if (typeof value.content !== 'string' || value.content.length > 8_000) throw new Error('Messages may contain at most 8,000 characters.');
 	if (!Number.isInteger(value.position) || (value.position as number) < 0) throw new Error('Message positions must be non-negative integers.');
 	if (!isIsoDate(value.createdAt)) throw new Error('Message timestamps are invalid.');
 
@@ -60,8 +60,8 @@ export function parseConversationImport(value: unknown): ConversationImport {
 	if (!isObject(value) || !Array.isArray(value.conversations) || !Array.isArray(value.messages)) {
 		throw new Error('The import payload must contain conversations and messages.');
 	}
-	if (value.conversations.length > 100) throw new Error('A single import may contain at most 100 conversations.');
-	if (value.messages.length > 2_000) throw new Error('A single import may contain at most 2,000 messages.');
+	if (value.conversations.length > 20) throw new Error('A single import may contain at most 20 conversations.');
+	if (value.messages.length > 500) throw new Error('A single import may contain at most 500 messages.');
 
 	const conversations = value.conversations.map(parseConversation);
 	const conversationIds = new Set(conversations.map((conversation) => conversation.id));

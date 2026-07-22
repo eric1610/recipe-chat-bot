@@ -8,7 +8,8 @@
 		conversations = [],
 		refreshKey = 0,
 		onNew,
-		onSelect
+		onSelect,
+		onClearGuest
 	}: {
 		labelledBy?: string;
 		authenticated?: boolean;
@@ -16,6 +17,7 @@
 		refreshKey?: number;
 		onNew?: () => void;
 		onSelect?: (conversation: ConversationSummary) => void;
+		onClearGuest?: () => Promise<void>;
 	} = $props();
 
 	let guestConversations = $state<StoredConversation[]>([]);
@@ -45,6 +47,12 @@
 	}
 
 	let visibleConversations = $derived(authenticated ? conversations : guestConversations);
+
+	async function confirmClearGuestHistory() {
+		if (!onClearGuest || !confirm('Clear all guest conversations from this browser tab?')) return;
+		await onClearGuest();
+		guestConversations = [];
+	}
 </script>
 
 <div class="flex h-full min-h-0 flex-col" aria-labelledby={labelledBy}>
@@ -94,7 +102,15 @@
 		{/if}
 	</div>
 
+	{#if !authenticated && visibleConversations.length > 0}
+		<div class="border-t border-surface-300-700 px-4 py-3">
+			<button class="btn w-full preset-tonal-error font-bold" type="button" onclick={confirmClearGuestHistory}>
+				Clear guest history
+			</button>
+		</div>
+	{/if}
+
 	<p class="border-t border-surface-300-700 p-4 text-xs leading-5 text-surface-600-400">
-		{authenticated ? 'History is securely scoped to your account.' : 'Guest history lasts only for this browser tab.'}
+		{authenticated ? 'History is securely scoped to your account.' : 'Guest history expires after 12 hours without activity and may survive a restored browser session.'}
 	</p>
 </div>

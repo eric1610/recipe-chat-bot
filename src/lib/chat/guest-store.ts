@@ -1,6 +1,12 @@
 import type { ConversationImport, StoredConversation, StoredMessage } from '$lib/chat/types';
 
 const storageKey = 'recipe-chat-bot-guest-history';
+export const guestHistoryTtlMs = 12 * 60 * 60 * 1000;
+
+interface GuestHistoryEnvelope extends ConversationImport {
+	version: 2;
+	lastActivityAt: string;
+}
 
 function getStorage(): Storage {
 	if (typeof sessionStorage === 'undefined') {
@@ -15,11 +21,21 @@ function readHistory(): ConversationImport {
 	if (!value) return { conversations: [], messages: [] };
 
 	try {
-		const parsed = JSON.parse(value) as Partial<ConversationImport>;
-		return {
+		const parsed = JSON.parse(value) as Partial<GuestHistoryEnvelope>;
+		const history = {
 			conversations: Array.isArray(parsed.conversations) ? parsed.conversations : [],
 			messages: Array.isArray(parsed.messages) ? parsed.messages : []
 		};
+		if (parsed.version !== 2 || typeof parsed.lastActivityAt !== 'string') {
+			writeHistory(history);
+			return history;
+		}
+		const lastActivity = Date.parse(parsed.lastActivityAt);
+		if (!Number.isFinite(lastActivity) || Date.now() - lastActivity >= guestHistoryTtlMs) {
+			getStorage().removeItem(storageKey);
+			return { conversations: [], messages: [] };
+		}
+		return history;
 	} catch {
 		getStorage().removeItem(storageKey);
 		return { conversations: [], messages: [] };
@@ -27,7 +43,12 @@ function readHistory(): ConversationImport {
 }
 
 function writeHistory(history: ConversationImport): void {
-	getStorage().setItem(storageKey, JSON.stringify(history));
+	const envelope: GuestHistoryEnvelope = {
+		version: 2,
+		lastActivityAt: new Date().toISOString(),
+		...history
+	};
+	getStorage().setItem(storageKey, JSON.stringify(envelope));
 }
 
 export async function listGuestConversations(): Promise<StoredConversation[]> {

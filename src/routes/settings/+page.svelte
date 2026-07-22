@@ -2,9 +2,9 @@
 	import type { UserPreferences } from '$lib/chat/types';
 	let { data, form }: {
 		data: { preferences: UserPreferences };
-		form?: { preferencesSaved?: boolean; preferenceError?: string } | null;
+		form?: { preferencesSaved?: boolean; preferenceError?: string; deleteError?: string } | null;
 	} = $props();
-	let confirmDelete = $state(false);
+	let deleteConfirmation = $state('');
 	const join = (values: string[]) => values.join(', ');
 </script>
 
@@ -67,12 +67,14 @@
 	<section class="card mt-8 border border-recipe-red/50 bg-surface-50-950 p-6 sm:p-8" aria-labelledby="danger-title">
 		<h2 id="danger-title" class="text-xl font-black text-surface-950-50">Delete account</h2>
 		<p class="mt-2 max-w-2xl text-sm leading-6 text-surface-700-300">Permanently removes your local app account, OAuth connections, preferences, sessions, conversations, and messages. It does not delete your Google or GitHub account.</p>
-		<label class="mt-5 flex items-start gap-3 text-sm font-semibold text-surface-950-50">
-			<input class="checkbox mt-0.5" type="checkbox" bind:checked={confirmDelete} />
-			I understand this cannot be undone.
+		{#if form?.deleteError}<p class="mt-4 rounded-container bg-recipe-red p-3 text-sm font-bold text-recipe-red-ink" role="alert">{form.deleteError}</p>{/if}
+		<label class="mt-5 grid max-w-md gap-2 text-sm font-semibold text-surface-950-50">
+			Type <strong>DELETE MY ACCOUNT</strong> to confirm.
+			<input class="input" name="confirmation-preview" autocomplete="off" bind:value={deleteConfirmation} />
 		</label>
 		<form method="POST" action="?/deleteAccount" class="mt-4">
-			<button class="btn bg-recipe-red font-bold text-recipe-red-ink disabled:opacity-40" type="submit" disabled={!confirmDelete}>Permanently delete my account</button>
+			<input type="hidden" name="confirmation" value={deleteConfirmation} />
+			<button class="btn bg-recipe-red font-bold text-recipe-red-ink disabled:opacity-40" type="submit" disabled={deleteConfirmation !== 'DELETE MY ACCOUNT'}>Permanently delete my account</button>
 		</form>
 	</section>
 </main>

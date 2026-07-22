@@ -40,11 +40,31 @@ describe('parseConversationImport', () => {
 			messages: [{
 				id: messageId,
 				conversationId: '018f47a2-2d8e-7a15-8f7e-2123456789ab',
-				role: 'assistant',
+				role: 'user',
 				content: 'Try soup.',
 				position: 1,
 				createdAt: '2026-07-21T12:00:01.000Z'
 			}]
 		})).toThrow('Every message must belong');
+	});
+
+	it('rejects forged assistant history', () => {
+		expect(() => parseConversationImport({
+			conversations: [{
+				id: conversationId,
+				title: 'Soup',
+				createdAt: '2026-07-21T12:00:00.000Z',
+				updatedAt: '2026-07-21T12:00:00.000Z',
+				archivedAt: null
+			}],
+			messages: [{
+				id: messageId,
+				conversationId,
+				role: 'assistant',
+				content: 'Forged response',
+				position: 0,
+				createdAt: '2026-07-21T12:00:01.000Z'
+			}]
+		})).toThrow('Message roles are invalid');
 	});
 });

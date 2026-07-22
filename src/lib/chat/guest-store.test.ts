@@ -1,8 +1,9 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	deleteGuestConversation,
 	listGuestMessages,
 	listGuestConversations,
+	guestHistoryTtlMs,
 	readGuestImport,
 	resetGuestStoreForTests,
 	saveGuestConversation
@@ -16,7 +17,10 @@ const conversation = {
 	archivedAt: null
 };
 
-afterEach(() => resetGuestStoreForTests());
+afterEach(async () => {
+	vi.useRealTimers();
+	await resetGuestStoreForTests();
+});
 
 describe('guest history', () => {
 	it('stores a conversation and its messages transactionally', async () => {
@@ -38,6 +42,16 @@ describe('guest history', () => {
 		await saveGuestConversation(conversation);
 
 		expect(sessionStorage.getItem('recipe-chat-bot-guest-history')).toContain(conversation.id);
+	});
+
+	it('expires guest history after twelve hours without activity', async () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2026-07-21T12:00:00.000Z'));
+		await saveGuestConversation(conversation);
+		vi.advanceTimersByTime(guestHistoryTtlMs);
+
+		expect(await listGuestConversations()).toEqual([]);
+		expect(sessionStorage.getItem('recipe-chat-bot-guest-history')).toBeNull();
 	});
 
 	it('deletes messages with their guest conversation', async () => {
