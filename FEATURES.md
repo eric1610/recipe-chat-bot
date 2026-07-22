@@ -53,7 +53,7 @@ product (MVP), and possible enhancements beyond the MVP.
 - [x] Neon Postgres production database
 - [x] Vercel production deployment
 - [x] Sensitive production environment variables managed outside the repository
-- [x] GitHub Actions validation for checks, tests, and production builds
+- [x] GitHub Actions validation for checks and tests
 - [x] Automated tests for guest storage and guest-history import validation
 
 ## Focused MVP

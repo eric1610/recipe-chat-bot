@@ -81,8 +81,8 @@ pnpm run db:generate
 3. Add `DATABASE_URL`, `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `AUTH_GITHUB_ID`, and
    `AUTH_GITHUB_SECRET` to the Vercel project environment.
 4. Run `pnpm run db:migrate` against the production `DATABASE_URL` once before the first sign-in.
-5. Deploy through Vercel's Git integration. GitHub Actions validates checks, tests, and builds but
-   no longer publishes to GitHub Pages.
+5. Deploy through Vercel's Git integration. GitHub Actions validates checks and tests, while
+   Vercel performs preview and production builds and deployments.
 
 Vercel Hobby is intended for personal, non-commercial projects. Choose a suitable paid or
 commercial host before using the application commercially.

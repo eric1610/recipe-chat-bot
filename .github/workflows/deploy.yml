@@ -39,8 +39,3 @@ jobs:
 
       - name: Run tests
         run: pnpm run test
-
-      - name: Build Vercel application
-        env:
-          AUTH_SECRET: 0000000000000000000000000000000000000000000000000000000000000000
-        run: pnpm run build
