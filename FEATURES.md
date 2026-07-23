@@ -90,6 +90,23 @@ anonymous AI access, broader end-to-end testing, and production observability.
   responses, and rate limits
 - [x] Show exact personal daily usage and qualitative shared-capacity warnings
 
+### Next implementation slice — successful-response accounting
+
+- [ ] Count a request against the user's daily allowance only after the assistant response finishes
+  successfully and is persisted
+- [ ] Do not consume the user's completed-response allowance for provider failures, timeouts,
+  cancellations, empty responses, or assistant-persistence failures
+- [ ] Keep a separate pre-request reservation count for the shared OpenRouter ceiling so concurrent
+  requests cannot exceed the provider's hard daily limit
+- [ ] Make completion accounting idempotent so retries, duplicate callbacks, and concurrent updates
+  cannot charge a successful response more than once
+- [ ] Add an authenticated, idempotent daily cron job that removes expired quota-counter windows
+  without deleting conversations, messages, preferences, or current-day reservations
+- [ ] Define a limited retention period for AI-attempt and token metadata, then have the cleanup job
+  prune records older than that period
+- [ ] Test successful completion, every failure state, concurrent reservations, UTC-day rollover,
+  repeated cleanup runs, and cleanup safety boundaries
+
 ### Recipe quality and usefulness
 
 - [ ] Return recipes with a clear title, servings, estimated time, ingredients, quantities, and
@@ -117,7 +134,7 @@ anonymous AI access, broader end-to-end testing, and production observability.
 
 - [x] Validate and limit message size, conversation context, and accepted request payloads
 - [x] Add per-user rate limiting, storage quotas, and abuse protection for authenticated persistence
-- [x] Enforce a 10-request per-user UTC-day AI cap with a server-configured exempt account
+- [x] Enforce the current 10-attempt per-user UTC-day AI cap with a server-configured exempt account
 - [x] Enforce a shared 50-request UTC-day cap and latch provider exhaustion after upstream `429`
 - [x] Enforce ownership checks for every conversation and message operation
 - [ ] Add tests for anonymous chat, authenticated persistence, authorization boundaries, imports,
