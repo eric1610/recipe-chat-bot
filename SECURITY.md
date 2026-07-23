@@ -14,6 +14,8 @@ include live secrets, full conversation content, or personal data in the report.
   Vercel and are used only for reviewed migrations.
 - Local environment files are ignored. Production values must not be copied into the repository,
   shell profiles, logs, screenshots, issue reports, or CI configuration.
+- `OPENROUTER_API_KEY` and the AI-cap exemption allowlist are server-only, Sensitive,
+  Production-only variables. Neither value may be serialized into page data or browser bundles.
 - Rotate a credential immediately if it may have appeared in a preview, log, terminal transcript,
   or commit. Removing it from the current files does not revoke it or erase Git history.
 
@@ -39,3 +41,13 @@ include live secrets, full conversation content, or personal data in the report.
 - OAuth access, refresh, and ID tokens are discarded. Database session tokens are keyed hashes.
 - Account deletion requires the exact confirmation phrase and removes application-owned account
   records through database cascades.
+- AI generation accepts only one bounded user message and a conversation identifier; conversation
+  history is loaded on the server after ownership checks. Provider routing denies providers that
+  declare prompt collection, and raw provider errors are replaced with sanitized application
+  messages.
+- AI-attempt records contain identifiers, status, model, timestamps, and token totals but do not
+  duplicate prompt or response content. User deletion removes identifiable attempt records while
+  aggregate UTC quota-window totals remain for enforcement.
+- The 50-attempt shared daily ceiling is reserved transactionally before provider access. A
+  provider `429` latches shared exhaustion using `Retry-After`, preventing repeated calls against
+  an exhausted key.

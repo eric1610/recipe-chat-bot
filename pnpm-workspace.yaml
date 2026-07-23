@@ -8,3 +8,6 @@ minimumReleaseAgeExclude:
   - '@auth/core@0.41.3'
   - '@auth/drizzle-adapter@1.11.3'
   - '@auth/sveltekit@1.11.3'
+  - '@ai-sdk/gateway@4.0.27'
+  - '@ai-sdk/svelte@5.0.35'
+  - ai@7.0.35

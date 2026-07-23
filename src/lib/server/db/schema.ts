@@ -148,6 +148,55 @@ export const securityRateLimits = pgTable(
 	(limit) => [index('security_rate_limits_expires_idx').on(limit.expiresAt)]
 );
 
+export type AiGenerationAttemptStatus =
+	| 'reserved'
+	| 'started'
+	| 'completed'
+	| 'failed'
+	| 'cancelled'
+	| 'provider_limited';
+
+export const aiQuotaWindows = pgTable(
+	'ai_quota_windows',
+	{
+		provider: text('provider').notNull(),
+		windowStart: timestamp('window_start', { withTimezone: true }).notNull(),
+		attemptCount: integer('attempt_count').notNull().default(0),
+		providerBlockedUntil: timestamp('provider_blocked_until', { withTimezone: true }),
+		updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
+	},
+	(window) => [primaryKey({ columns: [window.provider, window.windowStart] })]
+);
+
+export const aiGenerationAttempts = pgTable(
+	'ai_generation_attempts',
+	{
+		id: uuid('id').primaryKey(),
+		userId: text('user_id')
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		conversationId: uuid('conversation_id').notNull(),
+		userMessageId: uuid('user_message_id').notNull(),
+		assistantMessageId: uuid('assistant_message_id'),
+		provider: text('provider').notNull(),
+		model: text('model').notNull(),
+		windowStart: timestamp('window_start', { withTimezone: true }).notNull(),
+		status: text('status').$type<AiGenerationAttemptStatus>().notNull(),
+		inputTokens: integer('input_tokens'),
+		outputTokens: integer('output_tokens'),
+		totalTokens: integer('total_tokens'),
+		errorCode: text('error_code'),
+		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+		startedAt: timestamp('started_at', { withTimezone: true }),
+		completedAt: timestamp('completed_at', { withTimezone: true })
+	},
+	(attempt) => [
+		uniqueIndex('ai_generation_attempts_user_message_idx').on(attempt.userMessageId),
+		index('ai_generation_attempts_user_window_idx').on(attempt.userId, attempt.windowStart),
+		index('ai_generation_attempts_created_idx').on(attempt.createdAt)
+	]
+);
+
 export const authSchema = {
 	usersTable: users,
 	accountsTable: accounts,

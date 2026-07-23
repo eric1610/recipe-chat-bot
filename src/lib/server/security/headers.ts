@@ -1,6 +1,6 @@
 import type { Handle } from '@sveltejs/kit';
 
-const privateRoute = /^(?:\/auth(?:\/|$)|\/signin(?:\/|$)|\/signout(?:\/|$)|\/chat(?:\/|$)|\/settings(?:\/|$)|\/api\/conversations(?:\/|$))/;
+const privateRoute = /^(?:\/auth(?:\/|$)|\/signin(?:\/|$)|\/signout(?:\/|$)|\/chat(?:\/|$)|\/settings(?:\/|$)|\/api\/(?:ai|chat|conversations)(?:\/|$))/;
 
 export const securityHeaders: Handle = async ({ event, resolve }) => {
 	const response = await resolve(event);

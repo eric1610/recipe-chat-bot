@@ -44,8 +44,8 @@ product (MVP), and possible enhancements beyond the MVP.
 - [x] Clearly warn guests that their data will be lost when the session ends
 - [x] Offer signed-in users an explicit import of guest history
 - [x] Clear local guest history only after a successful import
-- [ ] Generate and display assistant responses — **Foundation only**
-- [ ] Complete the full user-message-to-AI-response chat lifecycle — **Foundation only**
+- [x] Generate, stream, display, and persist assistant responses for signed-in users
+- [x] Complete the signed-in user-message-to-AI-response chat lifecycle
 
 ### Platform and delivery
 
@@ -68,18 +68,19 @@ connecting the existing conversation experience to an AI model.
 
 ### AI recipe conversation
 
-- [ ] Connect a production AI model through a server-only API integration
-- [ ] Stream assistant responses into the chat workspace
-- [ ] Save completed assistant messages to the correct signed-in or guest conversation
-- [ ] Include recent conversation history in each model request
+- [x] Connect OpenRouter through a server-only API integration
+- [x] Stream assistant responses into the chat workspace
+- [x] Save completed assistant messages to the correct signed-in conversation
+- [x] Include bounded recent, server-owned conversation history in each model request
 - [ ] Apply saved diets, allergies, dislikes, cuisines, cooking skill, household size, and notes to
   signed-in conversations
 - [ ] Keep anonymous chat functional without requiring an account
-- [ ] Prevent model credentials, system instructions, and other server secrets from reaching the
+- [x] Prevent model credentials, system instructions, and other server secrets from reaching the
   browser
-- [ ] Provide clear sending, streaming, completed, cancelled, and failed states
+- [x] Provide clear sending, streaming, completed, cancelled, and failed states
 - [ ] Allow users to stop generation and retry or regenerate a failed response
-- [ ] Recover cleanly from network failures, model timeouts, malformed responses, and rate limits
+- [x] Recover without leaking provider details from network failures, model timeouts, malformed
+  responses, and rate limits
 
 ### Recipe quality and usefulness
 
@@ -113,8 +114,9 @@ connecting the existing conversation experience to an AI model.
   streaming, cancellation, retries, and AI failures
 - [ ] Add structured production logging without recording secrets or unnecessary conversation data
 - [ ] Add error monitoring and health visibility for the application, database, and AI provider
-- [ ] Track model usage, latency, token consumption, and cost with privacy-conscious metrics
-- [ ] Document data retention, privacy behavior, AI limitations, and account deletion behavior
+- [x] Track per-user/shared request attempts and token consumption without duplicating message text
+- [ ] Track end-to-end model latency and paid-model cost
+- [x] Document AI data retention, provider routing, limits, and account deletion behavior
 
 ## Enhanced roadmap — TBD
 
