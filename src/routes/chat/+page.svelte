@@ -2,6 +2,7 @@
 	import type { Session } from '@auth/sveltekit';
 	import type { ConversationSummary, StoredConversation, StoredMessage } from '$lib/chat/types';
 	import type { AiUsageSnapshot } from '$lib/chat/usage';
+	import { shouldSubmitComposer } from '$lib/chat/composer';
 	import { base } from '$app/paths';
 	import { invalidateAll } from '$app/navigation';
 	import { Chat } from '@ai-sdk/svelte';
@@ -203,6 +204,12 @@
 			chatError = cause instanceof Error ? cause.message : 'The recipe assistant could not respond.';
 			draft = content;
 		}
+	}
+
+	function handleComposerKeydown(event: KeyboardEvent & { currentTarget: HTMLTextAreaElement }) {
+		if (!shouldSubmitComposer(event) || sending || !draft.trim()) return;
+		event.preventDefault();
+		event.currentTarget.form?.requestSubmit();
 	}
 
 	async function importGuestHistory() {
@@ -465,6 +472,7 @@
 							rows="1"
 							bind:this={composer}
 							bind:value={draft}
+							onkeydown={handleComposerKeydown}
 							maxlength="8000"
 							disabled={!data.session || quotaExhausted}
 						></textarea>

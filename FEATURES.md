@@ -46,6 +46,7 @@ product (MVP), and possible enhancements beyond the MVP.
 - [x] Clear local guest history only after a successful import
 - [x] Generate, stream, display, and persist assistant responses for signed-in users
 - [x] Complete the signed-in user-message-to-AI-response chat lifecycle
+- [x] Keep signed-in AI usage separate from guest, browser-only conversation history
 
 ### Platform and delivery
 
@@ -53,22 +54,27 @@ product (MVP), and possible enhancements beyond the MVP.
 - [x] Neon Postgres production database
 - [x] Vercel production deployment
 - [x] Sensitive production environment variables managed outside the repository
+- [x] OpenRouter API credentials configured as encrypted, production-only Vercel secrets
 - [x] Production-only Vercel secrets and least-privileged Neon runtime credentials
 - [x] Hashed database session tokens without retained OAuth provider tokens
 - [x] Same-origin JSON request enforcement, payload limits, per-user rate limits, and storage quotas
 - [x] Security headers and Content Security Policy
 - [x] GitHub Actions secret scanning, checks, tests, and dependency auditing
 - [x] Automated dependency updates with pinned GitHub Action revisions
-- [x] Automated tests for guest storage, request guards, session hashing, redirects, and import validation
+- [x] Automated tests for guest storage, request guards, session hashing, redirects, import
+  validation, AI quotas, context limits, and provider-error sanitization
+- [x] Production database migration, deployment, and signed-out API security boundaries validated
 
 ## Focused MVP
 
-The MVP is a safe, reliable, preference-aware recipe assistant. Its primary remaining milestone is
-connecting the existing conversation experience to an AI model.
+The MVP is a safe, reliable, preference-aware recipe assistant. Signed-in AI conversation is now
+live; the primary remaining milestones are preference-aware responses, structured recipe quality,
+anonymous AI access, broader end-to-end testing, and production observability.
 
 ### AI recipe conversation
 
 - [x] Connect OpenRouter through a server-only API integration
+- [x] Route requests through `openrouter/free` with provider data collection disabled
 - [x] Stream assistant responses into the chat workspace
 - [x] Save completed assistant messages to the correct signed-in conversation
 - [x] Include bounded recent, server-owned conversation history in each model request
@@ -78,9 +84,11 @@ connecting the existing conversation experience to an AI model.
 - [x] Prevent model credentials, system instructions, and other server secrets from reaching the
   browser
 - [x] Provide clear sending, streaming, completed, cancelled, and failed states
-- [ ] Allow users to stop generation and retry or regenerate a failed response
+- [x] Allow users to stop an in-progress generation
+- [ ] Allow users to retry or regenerate a failed response
 - [x] Recover without leaking provider details from network failures, model timeouts, malformed
   responses, and rate limits
+- [x] Show exact personal daily usage and qualitative shared-capacity warnings
 
 ### Recipe quality and usefulness
 
@@ -101,7 +109,7 @@ connecting the existing conversation experience to an AI model.
 - [ ] Allow users to rename conversations
 - [ ] Preserve message ordering and prevent duplicate messages during retries
 - [ ] Automatically keep the latest streaming content visible without trapping manual scrolling
-- [ ] Support multiline input and keyboard submission with an accessible alternative
+- [x] Submit with Enter, add a new line with Shift+Enter, and keep an accessible send button
 - [ ] Confirm the complete chat flow works on mobile, tablet, and desktop layouts
 - [ ] Confirm the complete chat flow works with keyboard navigation and screen readers
 
@@ -109,12 +117,15 @@ connecting the existing conversation experience to an AI model.
 
 - [x] Validate and limit message size, conversation context, and accepted request payloads
 - [x] Add per-user rate limiting, storage quotas, and abuse protection for authenticated persistence
+- [x] Enforce a 10-request per-user UTC-day AI cap with a server-configured exempt account
+- [x] Enforce a shared 50-request UTC-day cap and latch provider exhaustion after upstream `429`
 - [x] Enforce ownership checks for every conversation and message operation
 - [ ] Add tests for anonymous chat, authenticated persistence, authorization boundaries, imports,
   streaming, cancellation, retries, and AI failures
 - [ ] Add structured production logging without recording secrets or unnecessary conversation data
 - [ ] Add error monitoring and health visibility for the application, database, and AI provider
 - [x] Track per-user/shared request attempts and token consumption without duplicating message text
+- [x] Keep exact shared usage counts server-side while exposing only qualitative capacity states
 - [ ] Track end-to-end model latency and paid-model cost
 - [x] Document AI data retention, provider routing, limits, and account deletion behavior
 

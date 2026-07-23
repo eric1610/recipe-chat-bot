@@ -1,10 +1,18 @@
 import { env } from '$env/dynamic/private';
-import { neon } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-http';
+import { drizzle } from 'drizzle-orm/neon-serverless';
 import * as schema from './schema';
 
-function createNeonDatabase(url: string) {
-	return drizzle({ client: neon(url), schema });
+export function createNeonDatabase(url: string) {
+	// Drizzle's neon-http driver cannot run the interactive transactions used by chat and imports.
+	return drizzle({
+		connection: {
+			connectionString: url,
+			max: 2,
+			idleTimeoutMillis: 10_000,
+			connectionTimeoutMillis: 10_000
+		},
+		schema
+	});
 }
 
 export type Database = ReturnType<typeof createNeonDatabase>;
