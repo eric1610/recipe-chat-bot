@@ -1,12 +1,15 @@
 import type { AiUsageSnapshot } from '$lib/chat/usage';
 import type { Database } from '$lib/server/db';
 import { aiGenerationAttempts, aiQuotaWindows } from '$lib/server/db/schema';
-import { and, count, eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, lt, sql } from 'drizzle-orm';
 
 export const OPENROUTER_PROVIDER = 'openrouter';
 export const OPENROUTER_MODEL = 'openrouter/free';
 export const PERSONAL_DAILY_LIMIT = 10;
 export const SHARED_DAILY_LIMIT = 50;
+export const AI_ATTEMPT_EXPIRY_MS = 120_000;
+
+const activeAttemptStatuses = ['reserved', 'started'] as const;
 
 export type AiQuotaDenial = 'personal_limit' | 'shared_limit' | 'provider_limit';
 
@@ -25,6 +28,7 @@ export interface AiQuotaReservation {
 
 export interface AiQuotaPolicyValues {
 	personalCount: number;
+	personalInFlightCount: number;
 	sharedCount: number;
 	providerBlockedUntil: Date | null;
 	isExempt: boolean;
@@ -50,7 +54,12 @@ export function isQuotaExempt(email: string | null | undefined, configuredEmails
 export function getQuotaDenial(values: AiQuotaPolicyValues): AiQuotaDenial | null {
 	if (values.providerBlockedUntil && values.providerBlockedUntil > values.now) return 'provider_limit';
 	if (values.sharedCount >= SHARED_DAILY_LIMIT) return 'shared_limit';
-	if (!values.isExempt && values.personalCount >= PERSONAL_DAILY_LIMIT) return 'personal_limit';
+	if (
+		!values.isExempt &&
+		values.personalCount + values.personalInFlightCount >= PERSONAL_DAILY_LIMIT
+	) {
+		return 'personal_limit';
+	}
 	return null;
 }
 
@@ -114,7 +123,16 @@ async function readUsageValues(
 		)
 		.limit(1);
 	const [personal] = await database
-		.select({ count: count() })
+		.select({
+			completedCount:
+				sql<number>`count(*) filter (where ${aiGenerationAttempts.status} = 'completed')`.mapWith(
+					Number
+				),
+			inFlightCount:
+				sql<number>`count(*) filter (where ${aiGenerationAttempts.status} in ('reserved', 'started'))`.mapWith(
+					Number
+				)
+		})
 		.from(aiGenerationAttempts)
 		.where(
 			and(
@@ -124,7 +142,8 @@ async function readUsageValues(
 		);
 
 	return {
-		personalCount: personal.count,
+		personalCount: personal.completedCount,
+		personalInFlightCount: personal.inFlightCount,
 		sharedCount: quotaWindow?.attemptCount ?? 0,
 		providerBlockedUntil: quotaWindow?.providerBlockedUntil ?? null,
 		isExempt,
@@ -166,6 +185,17 @@ export async function reserveAiQuota(
 			.insert(aiQuotaWindows)
 			.values({ provider: OPENROUTER_PROVIDER, windowStart: window.start, attemptCount: 0, updatedAt: now })
 			.onConflictDoNothing();
+		await tx
+			.update(aiGenerationAttempts)
+			.set({ status: 'failed', errorCode: 'attempt_expired', completedAt: now })
+			.where(
+				and(
+					eq(aiGenerationAttempts.userId, input.userId),
+					eq(aiGenerationAttempts.windowStart, window.start),
+					inArray(aiGenerationAttempts.status, [...activeAttemptStatuses]),
+					lt(aiGenerationAttempts.createdAt, new Date(now.getTime() - AI_ATTEMPT_EXPIRY_MS))
+				)
+			);
 
 		const values = await readUsageValues(tx, input.userId, window, input.isExempt, now);
 		const usage = createUsageSnapshot(values);
@@ -190,7 +220,9 @@ export async function reserveAiQuota(
 			return {
 				allowed: false,
 				reason: 'personal_limit',
-				retryAfter: retryAfterSeconds(window.end, now),
+				retryAfter: values.personalCount < PERSONAL_DAILY_LIMIT
+					? AI_ATTEMPT_EXPIRY_MS / 1_000
+					: retryAfterSeconds(window.end, now),
 				usage
 			};
 		}
@@ -225,7 +257,6 @@ export async function reserveAiQuota(
 			retryAfter: 0,
 			usage: createUsageSnapshot({
 				...values,
-				personalCount: values.personalCount + 1,
 				sharedCount: updatedWindow.attemptCount
 			})
 		};
@@ -240,7 +271,12 @@ export async function markAiAttemptStarted(
 	await database
 		.update(aiGenerationAttempts)
 		.set({ status: 'started', startedAt: now })
-		.where(eq(aiGenerationAttempts.id, attemptId));
+		.where(
+			and(
+				eq(aiGenerationAttempts.id, attemptId),
+				eq(aiGenerationAttempts.status, 'reserved')
+			)
+		);
 }
 
 export async function markAiAttemptFailed(
@@ -253,7 +289,12 @@ export async function markAiAttemptFailed(
 	await database
 		.update(aiGenerationAttempts)
 		.set({ status, errorCode, completedAt: now })
-		.where(eq(aiGenerationAttempts.id, attemptId));
+		.where(
+			and(
+				eq(aiGenerationAttempts.id, attemptId),
+				inArray(aiGenerationAttempts.status, [...activeAttemptStatuses])
+			)
+		);
 }
 
 export async function markOpenRouterLimited(
@@ -265,10 +306,18 @@ export async function markOpenRouterLimited(
 	await database.transaction(async (transaction) => {
 		const tx = transaction as unknown as Database;
 		const [attempt] = await tx
-			.select({ provider: aiGenerationAttempts.provider, windowStart: aiGenerationAttempts.windowStart })
-			.from(aiGenerationAttempts)
-			.where(eq(aiGenerationAttempts.id, attemptId))
-			.limit(1);
+			.update(aiGenerationAttempts)
+			.set({ status: 'provider_limited', errorCode: 'provider_rate_limit', completedAt: now })
+			.where(
+				and(
+					eq(aiGenerationAttempts.id, attemptId),
+					inArray(aiGenerationAttempts.status, [...activeAttemptStatuses])
+				)
+			)
+			.returning({
+				provider: aiGenerationAttempts.provider,
+				windowStart: aiGenerationAttempts.windowStart
+			});
 		if (!attempt) return;
 		await tx
 			.update(aiQuotaWindows)
@@ -279,9 +328,5 @@ export async function markOpenRouterLimited(
 					eq(aiQuotaWindows.windowStart, attempt.windowStart)
 				)
 			);
-		await tx
-			.update(aiGenerationAttempts)
-			.set({ status: 'provider_limited', errorCode: 'provider_rate_limit', completedAt: now })
-			.where(eq(aiGenerationAttempts.id, attemptId));
 	});
 }

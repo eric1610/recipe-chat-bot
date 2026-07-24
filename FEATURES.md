@@ -92,13 +92,13 @@ anonymous AI access, broader end-to-end testing, and production observability.
 
 ### Next implementation slice — successful-response accounting
 
-- [ ] Count a request against the user's daily allowance only after the assistant response finishes
+- [x] Count a request against the user's daily allowance only after the assistant response finishes
   successfully and is persisted
-- [ ] Do not consume the user's completed-response allowance for provider failures, timeouts,
+- [x] Do not consume the user's completed-response allowance for provider failures, timeouts,
   cancellations, empty responses, or assistant-persistence failures
-- [ ] Keep a separate pre-request reservation count for the shared OpenRouter ceiling so concurrent
+- [x] Keep a separate pre-request reservation count for the shared OpenRouter ceiling so concurrent
   requests cannot exceed the provider's hard daily limit
-- [ ] Make completion accounting idempotent so retries, duplicate callbacks, and concurrent updates
+- [x] Make completion accounting idempotent so retries, duplicate callbacks, and concurrent updates
   cannot charge a successful response more than once
 - [ ] Add an authenticated, idempotent daily cron job that removes expired quota-counter windows
   without deleting conversations, messages, preferences, or current-day reservations
@@ -134,7 +134,8 @@ anonymous AI access, broader end-to-end testing, and production observability.
 
 - [x] Validate and limit message size, conversation context, and accepted request payloads
 - [x] Add per-user rate limiting, storage quotas, and abuse protection for authenticated persistence
-- [x] Enforce the current 10-attempt per-user UTC-day AI cap with a server-configured exempt account
+- [x] Enforce the current 10-successful-response per-user UTC-day AI cap with a server-configured
+  exempt account
 - [x] Enforce a shared 50-request UTC-day cap and latch provider exhaustion after upstream `429`
 - [x] Enforce ownership checks for every conversation and message operation
 - [ ] Add tests for anonymous chat, authenticated persistence, authorization boundaries, imports,

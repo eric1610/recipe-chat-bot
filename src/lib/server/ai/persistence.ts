@@ -1,14 +1,53 @@
 import type { ModelMessage, LanguageModelUsage } from 'ai';
 import type { Database } from '$lib/server/db';
-import { aiGenerationAttempts, conversations, messages } from '$lib/server/db/schema';
+import {
+	aiGenerationAttempts,
+	conversations,
+	messages,
+	type AiGenerationAttemptStatus
+} from '$lib/server/db/schema';
 import { hasStorageCapacity } from '$lib/server/security/limits';
 import { buildRecentModelContext } from './request';
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { AI_ATTEMPT_EXPIRY_MS } from './quota';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 
 const anticipatedAssistantBytes = 20_000;
 
 export class ConversationAccessError extends Error {}
 export class ConversationStorageError extends Error {}
+
+export function getAttemptCompletionAction(
+	attempt: {
+		userId: string;
+		conversationId: string;
+		assistantMessageId: string | null;
+		status: AiGenerationAttemptStatus;
+		createdAt: Date;
+	},
+	input: {
+		userId: string;
+		conversationId: string;
+		assistantMessageId: string;
+		now: Date;
+	}
+): 'persist' | 'already_completed' {
+	if (attempt.userId !== input.userId || attempt.conversationId !== input.conversationId) {
+		throw new ConversationAccessError('Conversation not found.');
+	}
+	if (attempt.status === 'completed') {
+		if (attempt.assistantMessageId !== input.assistantMessageId) {
+			throw new Error('The generation attempt was already completed with another response.');
+		}
+		return 'already_completed';
+	}
+	if (attempt.status !== 'reserved' && attempt.status !== 'started') {
+		throw new Error('The generation attempt is no longer active.');
+	}
+	if (attempt.createdAt.getTime() < input.now.getTime() - AI_ATTEMPT_EXPIRY_MS) {
+		throw new Error('The generation attempt expired before it could be saved.');
+	}
+	return 'persist';
+}
 
 export function conversationTitle(content: string): string {
 	const compact = content.replace(/\s+/g, ' ').trim();
@@ -121,6 +160,30 @@ export async function persistCompletedAssistant(
 
 	await database.transaction(async (transaction) => {
 		const tx = transaction as unknown as Database;
+		const [attempt] = await tx
+			.select({
+				userId: aiGenerationAttempts.userId,
+				conversationId: aiGenerationAttempts.conversationId,
+				assistantMessageId: aiGenerationAttempts.assistantMessageId,
+				status: aiGenerationAttempts.status,
+				createdAt: aiGenerationAttempts.createdAt
+			})
+			.from(aiGenerationAttempts)
+			.where(eq(aiGenerationAttempts.id, input.attemptId))
+			.limit(1)
+			.for('update');
+		if (!attempt) throw new Error('The generation attempt no longer exists.');
+		if (
+			getAttemptCompletionAction(attempt, {
+				userId: input.userId,
+				conversationId: input.conversationId,
+				assistantMessageId: input.assistantMessageId,
+				now
+			}) === 'already_completed'
+		) {
+			return;
+		}
+
 		await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${input.userId}))`);
 		const [ownedConversation] = await tx
 			.select({ id: conversations.id })
@@ -168,6 +231,11 @@ export async function persistCompletedAssistant(
 				errorCode: null,
 				completedAt: now
 			})
-			.where(eq(aiGenerationAttempts.id, input.attemptId));
+			.where(
+				and(
+					eq(aiGenerationAttempts.id, input.attemptId),
+					inArray(aiGenerationAttempts.status, ['reserved', 'started'])
+				)
+			);
 	});
 }

@@ -11,7 +11,15 @@ const now = new Date('2030-05-02T17:30:00.000Z');
 const windowEnd = new Date('2030-05-03T00:00:00.000Z');
 
 function usage(personalCount: number, sharedCount: number, isExempt = false, blockedUntil: Date | null = null) {
-	return createUsageSnapshot({ personalCount, sharedCount, isExempt, providerBlockedUntil: blockedUntil, now, windowEnd });
+	return createUsageSnapshot({
+		personalCount,
+		personalInFlightCount: 0,
+		sharedCount,
+		isExempt,
+		providerBlockedUntil: blockedUntil,
+		now,
+		windowEnd
+	});
 }
 
 describe('AI quota policy', () => {
@@ -53,6 +61,7 @@ describe('AI quota policy', () => {
 	it('allows request 50 and denies request 51 at the shared boundary', () => {
 		const values = {
 			personalCount: 1,
+			personalInFlightCount: 0,
 			sharedCount: 49,
 			isExempt: false,
 			providerBlockedUntil: null,
@@ -66,6 +75,7 @@ describe('AI quota policy', () => {
 	it('lets an exempt user bypass only the personal boundary', () => {
 		const values = {
 			personalCount: 10,
+			personalInFlightCount: 0,
 			sharedCount: 20,
 			isExempt: false,
 			providerBlockedUntil: null,
@@ -75,6 +85,35 @@ describe('AI quota policy', () => {
 		expect(getQuotaDenial(values)).toBe('personal_limit');
 		expect(getQuotaDenial({ ...values, isExempt: true })).toBeNull();
 		expect(getQuotaDenial({ ...values, isExempt: true, sharedCount: 50 })).toBe('shared_limit');
+	});
+
+	it('reserves in-flight personal slots without adding them to completed usage', () => {
+		const values = {
+			personalCount: 9,
+			personalInFlightCount: 1,
+			sharedCount: 20,
+			isExempt: false,
+			providerBlockedUntil: null,
+			now,
+			windowEnd
+		};
+		expect(createUsageSnapshot(values).user).toEqual({ used: 9, limit: 10, state: 'near' });
+		expect(getQuotaDenial(values)).toBe('personal_limit');
+		expect(getQuotaDenial({ ...values, personalInFlightCount: 0 })).toBeNull();
+	});
+
+	it('does not apply in-flight personal slots to exempt users', () => {
+		const values = {
+			personalCount: 75,
+			personalInFlightCount: 4,
+			sharedCount: 20,
+			isExempt: true,
+			providerBlockedUntil: null,
+			now,
+			windowEnd
+		};
+		expect(getQuotaDenial(values)).toBeNull();
+		expect(createUsageSnapshot(values).user.used).toBe(75);
 	});
 
 	it('parses numeric and HTTP-date Retry-After values without accepting stale dates', () => {
