@@ -1,6 +1,10 @@
 import type { Handle } from '@sveltejs/kit';
 
-const privateRoute = /^(?:\/auth(?:\/|$)|\/signin(?:\/|$)|\/signout(?:\/|$)|\/chat(?:\/|$)|\/settings(?:\/|$)|\/api\/(?:ai|chat|conversations)(?:\/|$))/;
+const privateRoute = /^(?:\/auth(?:\/|$)|\/signin(?:\/|$)|\/signout(?:\/|$)|\/chat(?:\/|$)|\/settings(?:\/|$)|\/api\/(?:ai|chat|conversations|cron)(?:\/|$))/;
+
+export function isPrivateRoute(pathname: string): boolean {
+	return privateRoute.test(pathname);
+}
 
 export const securityHeaders: Handle = async ({ event, resolve }) => {
 	const response = await resolve(event);
@@ -13,7 +17,7 @@ export const securityHeaders: Handle = async ({ event, resolve }) => {
 		'permissions-policy',
 		'camera=(), microphone=(), geolocation=(), payment=(), usb=()'
 	);
-	if (privateRoute.test(event.url.pathname)) {
+	if (isPrivateRoute(event.url.pathname)) {
 		headers.set('cache-control', 'private, no-store');
 	}
 

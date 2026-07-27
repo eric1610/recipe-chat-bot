@@ -14,8 +14,10 @@ include live secrets, full conversation content, or personal data in the report.
   Vercel and are used only for reviewed migrations.
 - Local environment files are ignored. Production values must not be copied into the repository,
   shell profiles, logs, screenshots, issue reports, or CI configuration.
-- `OPENROUTER_API_KEY` and the AI-cap exemption allowlist are server-only, Sensitive,
-  Production-only variables. Neither value may be serialized into page data or browser bundles.
+- `OPENROUTER_API_KEY`, `CRON_SECRET`, and the AI-cap exemption allowlist are server-only,
+  Sensitive, Production-only variables. None may be serialized into page data or browser bundles.
+  Generate the cron secret independently with `openssl rand -hex 32`; never share it with preview
+  or development deployments.
 - Rotate a credential immediately if it may have appeared in a preview, log, terminal transcript,
   or commit. Removing it from the current files does not revoke it or erase Git history.
 
@@ -30,7 +32,7 @@ include live secrets, full conversation content, or personal data in the report.
 4. Push the reviewed commit to `main` and wait for GitHub validation and the Vercel production
    deployment.
 5. Verify CSP and security headers, sign-in redirects, account ownership boundaries, guest-history
-   clearing, and that private routes return `Cache-Control: private, no-store`.
+   clearing, cron authorization, and that private routes return `Cache-Control: private, no-store`.
 
 ## Data boundaries
 
@@ -48,6 +50,11 @@ include live secrets, full conversation content, or personal data in the report.
 - AI-attempt records contain identifiers, status, model, timestamps, and token totals but do not
   duplicate prompt or response content. User deletion removes identifiable attempt records while
   aggregate UTC quota-window totals remain for enforcement.
+- Scheduled cleanup deletes AI-attempt metadata seven days after `created_at`, expires abandoned
+  active attempts after two minutes, and retains only the current and immediately previous UTC
+  quota windows. Conversation, message, preference, and user records are outside the cleanup
+  deletion boundary. Neon backup and point-in-time recovery retention can delay physical removal
+  from backup copies.
 - The 50-attempt shared daily ceiling is reserved transactionally before provider access. A
   provider `429` latches shared exhaustion using `Retry-After`, preventing repeated calls against
   an exhausted key.

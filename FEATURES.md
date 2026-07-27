@@ -100,10 +100,11 @@ anonymous AI access, broader end-to-end testing, and production observability.
   requests cannot exceed the provider's hard daily limit
 - [x] Make completion accounting idempotent so retries, duplicate callbacks, and concurrent updates
   cannot charge a successful response more than once
-- [ ] Add an authenticated, idempotent daily cron job that removes expired quota-counter windows
-  without deleting conversations, messages, preferences, or current-day reservations
-- [ ] Define a limited retention period for AI-attempt and token metadata, then have the cleanup job
-  prune records older than that period
+- [x] Implement an authenticated, idempotent daily cron job that removes expired quota-counter
+  windows without deleting conversations, messages, preferences, or current-day reservations
+- [x] Define seven-day retention for AI-attempt and token metadata and prune older records
+- [ ] Configure the production-only cron secret and verify the first Vercel invocation
+- [ ] Run the gated cleanup concurrency suite against an isolated migrated Postgres test database
 - [ ] Test successful completion, every failure state, concurrent reservations, UTC-day rollover,
   repeated cleanup runs, and cleanup safety boundaries
 

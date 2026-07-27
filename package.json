@@ -12,6 +12,7 @@
 		"check": "svelte-kit sync && pnpm --package=typescript@6.0.3 --package=svelte-check@4.7.3 dlx svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && pnpm --package=typescript@6.0.3 --package=svelte-check@4.7.3 dlx svelte-check --tsconfig ./tsconfig.json --watch",
 		"test": "vitest run",
+		"test:db": "REQUIRE_DATABASE_INTEGRATION=true vitest run src/lib/server/ai/cleanup.integration.test.ts",
 		"test:watch": "vitest",
 		"db:generate": "drizzle-kit generate",
 		"db:migrate": "drizzle-kit migrate",
