@@ -79,6 +79,9 @@ commercial host before using the application commercially.
 ## Data behavior
 
 - Signed-in conversations and preferences are scoped to the Auth.js session user ID in Neon.
+- Message input and model output are normalized before storage. Assistant Markdown is converted to
+  HTML only at display time, with raw HTML escaped, remote images disabled, and generated HTML
+  restricted to an explicit tag, attribute, and URL-scheme allowlist.
 - Guest history stays in `sessionStorage`, expires after 12 hours of inactivity, and can be cleared
   from the chat history panel. After sign-in, the user must explicitly approve an idempotent import;
   local records are cleared only after the server confirms success.

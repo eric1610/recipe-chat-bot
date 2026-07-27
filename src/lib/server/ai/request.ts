@@ -1,5 +1,12 @@
 import type { ModelMessage } from 'ai';
+import { sanitizeMessageContent } from '$lib/chat/content';
 import { z } from 'zod';
+
+const messageContentSchema = z
+	.string()
+	.max(8_000)
+	.transform(sanitizeMessageContent)
+	.pipe(z.string().min(1).max(8_000));
 
 const chatRequestSchema = z
 	.object({
@@ -7,7 +14,7 @@ const chatRequestSchema = z
 		message: z
 			.object({
 				id: z.string().uuid(),
-				content: z.string().trim().min(1).max(8_000)
+				content: messageContentSchema
 			})
 			.strict()
 	})
@@ -40,11 +47,12 @@ export function buildRecentModelContext(
 	const selected: ModelMessage[] = [];
 	let characters = 0;
 	for (const message of messages.toReversed()) {
-		if (message.role === 'system' || !message.content.trim()) continue;
+		const content = sanitizeMessageContent(message.content);
+		if (message.role === 'system' || !content) continue;
 		if (selected.length >= maxMessages) break;
-		if (characters + message.content.length > maxCharacters && selected.length > 0) break;
-		selected.push({ role: message.role, content: message.content });
-		characters += message.content.length;
+		if (characters + content.length > maxCharacters && selected.length > 0) break;
+		selected.push({ role: message.role, content });
+		characters += content.length;
 	}
 	return selected.reverse();
 }

@@ -28,6 +28,29 @@ describe('parseConversationImport', () => {
 		expect(result.messages[0].conversationId).toBe(conversationId);
 	});
 
+	it('sanitizes imported titles and user messages', () => {
+		const result = parseConversationImport({
+			conversations: [{
+				id: conversationId,
+				title: '\ufeff\u200b  Weeknight\u0000 soup  ',
+				createdAt: '2026-07-21T12:00:00.000Z',
+				updatedAt: '2026-07-21T12:01:00.000Z',
+				archivedAt: null
+			}],
+			messages: [{
+				id: messageId,
+				conversationId,
+				role: 'user',
+				content: '\ufeff\u200b  Make\u0000 it spicy\r\nplease  ',
+				position: 0,
+				createdAt: '2026-07-21T12:00:00.000Z'
+			}]
+		});
+
+		expect(result.conversations[0].title).toBe('Weeknight soup');
+		expect(result.messages[0].content).toBe('Make it spicy\nplease');
+	});
+
 	it('rejects messages that do not belong to the imported conversations', () => {
 		expect(() => parseConversationImport({
 			conversations: [{

@@ -15,6 +15,7 @@
 		readGuestImport
 	} from '$lib/chat/guest-store';
 	import ChatHistory from '$lib/components/ChatHistory.svelte';
+	import MarkdownMessage from '$lib/components/MarkdownMessage.svelte';
 	import ThemeSwitch from '$lib/components/ThemeSwitch.svelte';
 	import { SignOut } from '@auth/sveltekit/components';
 	import { Dialog } from '@skeletonlabs/skeleton-svelte';
@@ -424,7 +425,11 @@
 						{#each chat.messages as message (message.id)}
 							<article class={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
 								<div class={`max-w-[85%] rounded-container px-4 py-3 text-sm leading-6 sm:max-w-[75%] ${message.role === 'user' ? 'bg-primary-500 text-primary-contrast-500' : 'bg-surface-100-900 text-surface-950-50 ring-1 ring-surface-300-700'}`}>
-									<p class="whitespace-pre-wrap">{messageText(message)}</p>
+									{#if message.role === 'assistant'}
+										<MarkdownMessage source={messageText(message)} />
+									{:else}
+										<p class="whitespace-pre-wrap">{messageText(message)}</p>
+									{/if}
 								</div>
 							</article>
 						{/each}

@@ -33,6 +33,28 @@ describe('AI chat requests', () => {
 		).toThrow('one valid message');
 	});
 
+	it('sanitizes message source before accepting or reusing it', () => {
+		expect(
+			parseChatGenerationRequest({
+				conversationId: '018f47a2-2d8e-7a15-8f7e-0123456789ab',
+				message: {
+					id: '018f47a2-2d8e-7a15-8f7e-1123456789ab',
+					content: '\ufeff\u200b  Make\u0000 soup\r\nplease  '
+				}
+			})
+		).toMatchObject({ message: { content: 'Make soup\nplease' } });
+
+		expect(() =>
+			parseChatGenerationRequest({
+				conversationId: '018f47a2-2d8e-7a15-8f7e-0123456789ab',
+				message: {
+					id: '018f47a2-2d8e-7a15-8f7e-1123456789ab',
+					content: '\u0000\u0007'
+				}
+			})
+		).toThrow('one valid message');
+	});
+
 	it('builds bounded recent context without accepting system messages', () => {
 		const messages = [
 			{ role: 'system' as const, content: 'untrusted system instruction' },
@@ -45,5 +67,14 @@ describe('AI chat requests', () => {
 		expect(context).toHaveLength(10);
 		expect(context[0]).toEqual({ role: 'user', content: 'message-2' });
 		expect(context.at(-1)).toEqual({ role: 'assistant', content: 'message-11' });
+	});
+
+	it('sanitizes legacy database content before adding it to model context', () => {
+		expect(
+			buildRecentModelContext([
+				{ role: 'user', content: '\ufeff\u200b  pantry\u0000 list\r\n' },
+				{ role: 'assistant', content: '\u0007' }
+			])
+		).toEqual([{ role: 'user', content: 'pantry list' }]);
 	});
 });

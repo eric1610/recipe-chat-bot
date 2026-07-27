@@ -45,6 +45,8 @@ product (MVP), and possible enhancements beyond the MVP.
 - [x] Offer signed-in users an explicit import of guest history
 - [x] Clear local guest history only after a successful import
 - [x] Generate, stream, display, and persist assistant responses for signed-in users
+- [x] Render assistant responses as sanitized Markdown styled with Tailwind Typography, safe links,
+  and no remote images
 - [x] Complete the signed-in user-message-to-AI-response chat lifecycle
 - [x] Keep signed-in AI usage separate from guest, browser-only conversation history
 
@@ -134,6 +136,8 @@ anonymous AI access, broader end-to-end testing, and production observability.
 ### Security, reliability, and operations
 
 - [x] Validate and limit message size, conversation context, and accepted request payloads
+- [x] Normalize untrusted message input and model output before storage, then sanitize Markdown HTML
+  whenever stored assistant content is rendered
 - [x] Add per-user rate limiting, storage quotas, and abuse protection for authenticated persistence
 - [x] Enforce the current 10-successful-response per-user UTC-day AI cap with a server-configured
   exempt account

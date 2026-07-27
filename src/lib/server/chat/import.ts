@@ -4,6 +4,7 @@ import type {
 	StoredConversation,
 	StoredMessage
 } from '$lib/chat/types';
+import { sanitizeMessageContent } from '$lib/chat/content';
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 // All browser-imported history is user-controlled. Assistant and system roles are server-owned.
@@ -20,15 +21,17 @@ function isIsoDate(value: unknown): value is string {
 function parseConversation(value: unknown): StoredConversation {
 	if (!isObject(value)) throw new Error('Each conversation must be an object.');
 	if (typeof value.id !== 'string' || !uuidPattern.test(value.id)) throw new Error('Conversation IDs must be UUIDs.');
-	if (typeof value.title !== 'string' || value.title.trim().length < 1 || value.title.length > 160) {
+	if (typeof value.title !== 'string' || value.title.length > 160) {
 		throw new Error('Conversation titles must contain 1–160 characters.');
 	}
+	const title = sanitizeMessageContent(value.title);
+	if (!title || title.length > 160) throw new Error('Conversation titles must contain 1–160 characters.');
 	if (!isIsoDate(value.createdAt) || !isIsoDate(value.updatedAt)) throw new Error('Conversation timestamps are invalid.');
 	if (value.archivedAt !== null && !isIsoDate(value.archivedAt)) throw new Error('Archive timestamps are invalid.');
 
 	return {
 		id: value.id,
-		title: value.title.trim(),
+		title,
 		createdAt: value.createdAt,
 		updatedAt: value.updatedAt,
 		archivedAt: value.archivedAt
@@ -43,6 +46,8 @@ function parseMessage(value: unknown): StoredMessage {
 	}
 	if (typeof value.role !== 'string' || !roles.has(value.role as MessageRole)) throw new Error('Message roles are invalid.');
 	if (typeof value.content !== 'string' || value.content.length > 8_000) throw new Error('Messages may contain at most 8,000 characters.');
+	const content = sanitizeMessageContent(value.content);
+	if (!content || content.length > 8_000) throw new Error('Messages must contain 1–8,000 characters.');
 	if (!Number.isInteger(value.position) || (value.position as number) < 0) throw new Error('Message positions must be non-negative integers.');
 	if (!isIsoDate(value.createdAt)) throw new Error('Message timestamps are invalid.');
 
@@ -50,7 +55,7 @@ function parseMessage(value: unknown): StoredMessage {
 		id: value.id,
 		conversationId: value.conversationId,
 		role: value.role as MessageRole,
-		content: value.content,
+		content,
 		position: value.position as number,
 		createdAt: value.createdAt
 	};

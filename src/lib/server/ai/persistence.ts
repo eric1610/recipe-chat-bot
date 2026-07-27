@@ -1,4 +1,5 @@
 import type { ModelMessage, LanguageModelUsage } from 'ai';
+import { sanitizeMessageContent } from '$lib/chat/content';
 import type { Database } from '$lib/server/db';
 import {
 	aiGenerationAttempts,
@@ -64,6 +65,10 @@ export async function persistUserMessageForGeneration(
 		now: Date;
 	}
 ): Promise<void> {
+	const content = sanitizeMessageContent(input.content);
+	if (!content) throw new Error('Write a message before sending it.');
+	if (content.length > 8_000) throw new Error('Messages may contain at most 8,000 characters.');
+
 	await database.execute(sql`select pg_advisory_xact_lock(hashtext(${input.userId}))`);
 	const [existingConversation] = await database
 		.select({ userId: conversations.userId })
@@ -73,7 +78,7 @@ export async function persistUserMessageForGeneration(
 	if (existingConversation && existingConversation.userId !== input.userId) {
 		throw new ConversationAccessError('Conversation not found.');
 	}
-	const messageBytes = new TextEncoder().encode(input.content).byteLength;
+	const messageBytes = new TextEncoder().encode(content).byteLength;
 	if (
 		!(await hasStorageCapacity(database, input.userId, {
 			conversations: existingConversation ? 0 : 1,
@@ -104,7 +109,7 @@ export async function persistUserMessageForGeneration(
 		await database.insert(conversations).values({
 			id: input.conversationId,
 			userId: input.userId,
-			title: conversationTitle(input.content),
+			title: conversationTitle(content),
 			createdAt: input.now,
 			updatedAt: input.now,
 			archivedAt: null
@@ -115,7 +120,7 @@ export async function persistUserMessageForGeneration(
 		id: input.messageId,
 		conversationId: input.conversationId,
 		role: 'user',
-		content: input.content,
+		content,
 		position,
 		createdAt: input.now
 	});
@@ -155,7 +160,7 @@ export async function persistCompletedAssistant(
 	}
 ): Promise<void> {
 	const now = input.now ?? new Date();
-	const content = input.content.trim();
+	const content = sanitizeMessageContent(input.content);
 	if (!content) throw new Error('The provider returned an empty response.');
 
 	await database.transaction(async (transaction) => {

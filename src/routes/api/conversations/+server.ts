@@ -1,4 +1,5 @@
 import { getDatabase, type Database } from '$lib/server/db';
+import { sanitizeMessageContent } from '$lib/chat/content';
 import { conversations, messages } from '$lib/server/db/schema';
 import { consumeRateLimit, hasStorageCapacity } from '$lib/server/security/limits';
 import { isRecord, isUuid, readSameOriginJson } from '$lib/server/security/request';
@@ -21,10 +22,12 @@ function parseMessageRequest(value: unknown): MessageRequest {
 	if (Object.keys(value).some((key) => key !== 'conversationId' && key !== 'content')) {
 		error(400, 'The message payload contains unsupported fields.');
 	}
-	if (typeof value.content !== 'string' || !value.content.trim()) {
+	if (typeof value.content !== 'string') {
 		error(400, 'Write a message before sending it.');
 	}
-	const content = value.content.trim();
+	if (value.content.length > 8_000) error(400, 'Messages may contain at most 8,000 characters.');
+	const content = sanitizeMessageContent(value.content);
+	if (!content) error(400, 'Write a message before sending it.');
 	if (content.length > 8_000) error(400, 'Messages may contain at most 8,000 characters.');
 	if (value.conversationId !== undefined && !isUuid(value.conversationId)) {
 		error(400, 'Conversation IDs must be valid UUIDs.');
