@@ -123,6 +123,10 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 	}
 
 	const attemptId = reservation.attemptId;
+	const persistedConversationHeaders = {
+		'cache-control': 'private, no-store',
+		'x-conversation-id': payload.conversationId
+	};
 	const assistantMessageId = crypto.randomUUID();
 	let completed: { text: string; usage: LanguageModelUsage } | null = null;
 	let handledError = false;
@@ -171,7 +175,7 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 		return result.toUIMessageStreamResponse({
 			generateMessageId: () => assistantMessageId,
 			sendReasoning: false,
-			headers: { 'cache-control': 'private, no-store' },
+			headers: persistedConversationHeaders,
 			onEnd: async ({ isAborted }) => {
 				if (isAborted) {
 					await markAiAttemptFailed(database, attemptId, 'client_cancelled', 'cancelled');
@@ -202,7 +206,10 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 		const failure = classifyProviderFailure(cause);
 		return new Response(failure.message, {
 			status: isApiRateLimit(cause) ? 429 : 503,
-			headers: { 'content-type': 'text/plain; charset=utf-8' }
+			headers: {
+				...persistedConversationHeaders,
+				'content-type': 'text/plain; charset=utf-8'
+			}
 		});
 	}
 };

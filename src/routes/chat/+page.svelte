@@ -4,46 +4,51 @@
 	import type { AiUsageSnapshot } from '$lib/chat/usage';
 	import { shouldSubmitComposer } from '$lib/chat/composer';
 	import { base } from '$app/paths';
-	import { invalidateAll } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { Chat } from '@ai-sdk/svelte';
 	import { DefaultChatTransport, type UIMessage } from 'ai';
-	import {
-		clearGuestHistory,
-		countGuestConversations,
-		listGuestConversations,
-		listGuestMessages,
-		readGuestImport
-	} from '$lib/chat/guest-store';
 	import ChatHistory from '$lib/components/ChatHistory.svelte';
 	import MarkdownMessage from '$lib/components/MarkdownMessage.svelte';
 	import ThemeSwitch from '$lib/components/ThemeSwitch.svelte';
 	import { SignOut } from '@auth/sveltekit/components';
 	import { Dialog } from '@skeletonlabs/skeleton-svelte';
-	import { onMount } from 'svelte';
 
 	let { data, form }: {
 		data: {
-			session: Session | null;
+			session: Session;
 			conversations: ConversationSummary[];
-			aiUsage: AiUsageSnapshot | null;
+			aiUsage: AiUsageSnapshot;
+			currentConversation: StoredConversation | null;
+			messages: StoredMessage[];
 		};
 		form?: { deleteError?: string } | null;
 	} = $props();
 	type RecipeUiMessage = UIMessage<{ position?: number; createdAt?: string }>;
-	let hasGuestHistory = $state(false);
-	let importing = $state(false);
-	let importError = $state('');
-	let currentConversation = $state<StoredConversation | null>(null);
+	let draftConversation = $state<StoredConversation | null>(null);
+	let currentConversation = $derived(draftConversation ?? data.currentConversation);
 	let draft = $state('');
 	let pendingDraft = $state('');
 	let chatError = $state('');
-	let aiUsage = $state<AiUsageSnapshot | null>(null);
-	let historyRevision = $state(0);
+	let refreshedUsage = $state<AiUsageSnapshot | null>(null);
+	let aiUsage = $derived(refreshedUsage ?? data.aiUsage);
+	let persistedConversationId = $state<string | null>(null);
+	let generationSettled = false;
+	let loadedConversationId = $derived(data.currentConversation?.id);
 	let composer: HTMLTextAreaElement;
 
+	function initialMessages(): RecipeUiMessage[] {
+		return data.messages.map(toUiMessage);
+	}
+
 	const chat = new Chat<RecipeUiMessage>({
+		messages: initialMessages(),
 		transport: new DefaultChatTransport<RecipeUiMessage>({
 			api: `${base}/api/chat`,
+			fetch: async (input, init) => {
+				const response = await fetch(input, init);
+				persistedConversationId = response.headers.get('x-conversation-id');
+				return response;
+			},
 			prepareSendMessagesRequest: ({ messages, body }) => {
 				const message = messages.findLast((candidate) => candidate.role === 'user');
 				const content = message?.parts
@@ -60,68 +65,20 @@
 		}),
 		onError: (cause) => {
 			chatError = cause.message;
-			draft = pendingDraft;
-			void refreshAfterGeneration(true);
+			if (!persistedConversationId) draft = pendingDraft;
+			void refreshAfterGeneration();
 		},
 		onFinish: ({ isAbort, isError }) => {
 			if (isAbort) chatError = 'Response stopped. Your message remains saved.';
 			if (!isError) pendingDraft = '';
-			void refreshAfterGeneration(isError);
+			void refreshAfterGeneration();
 		}
 	});
 
 	let sending = $derived(chat.status === 'submitted' || chat.status === 'streaming');
 	let quotaExhausted = $derived(
-		!aiUsage || aiUsage.user.state === 'exhausted' || aiUsage.shared.state === 'exhausted'
+		aiUsage.user.state === 'exhausted' || aiUsage.shared.state === 'exhausted'
 	);
-
-	$effect(() => {
-		aiUsage = data.aiUsage;
-		if (data.session) {
-			void countGuestConversations().then((count) => (hasGuestHistory = count > 0));
-		}
-	});
-
-	onMount(() => {
-		if (!data.session) {
-			void listGuestConversations().then(async ([latest]) => {
-				if (latest) await selectConversation(latest);
-			});
-		}
-	});
-
-	function startConversation() {
-		currentConversation = null;
-		chat.messages = [];
-		chatError = '';
-		draft = '';
-		composer?.focus();
-	}
-
-	async function clearGuestSession() {
-		await clearGuestHistory();
-		hasGuestHistory = false;
-		historyRevision += 1;
-		startConversation();
-	}
-
-	async function selectConversation(conversation: ConversationSummary) {
-		chatError = '';
-		currentConversation = { ...conversation, archivedAt: null };
-		try {
-			let messages: StoredMessage[];
-			if (data.session) {
-				const response = await fetch(`/api/conversations/${conversation.id}`);
-				if (!response.ok) throw new Error('This conversation could not be loaded.');
-				messages = (await response.json()).messages;
-			} else {
-				messages = await listGuestMessages(conversation.id);
-			}
-			chat.messages = messages.map(toUiMessage);
-		} catch (cause) {
-			chatError = cause instanceof Error ? cause.message : 'This conversation could not be loaded.';
-		}
-	}
 
 	function usePrompt(prompt: string) {
 		draft = prompt;
@@ -158,38 +115,42 @@
 	}
 
 	async function refreshUsage() {
-		if (!data.session) return;
-		const response = await fetch(`${base}/api/ai/usage`);
-		if (response.ok) aiUsage = await response.json();
-	}
-
-	async function reloadCurrentConversation() {
-		if (!data.session || !currentConversation) return;
-		const response = await fetch(`${base}/api/conversations/${currentConversation.id}`);
-		if (response.ok) {
-			chat.messages = (await response.json()).messages.map(toUiMessage);
-		} else if (response.status === 404) {
-			currentConversation = null;
-			chat.messages = [];
+		try {
+			const response = await fetch(`${base}/api/ai/usage`);
+			if (response.ok) refreshedUsage = await response.json();
+		} catch {
+			// The next server load will reconcile usage if this non-critical refresh fails.
 		}
 	}
 
-	async function refreshAfterGeneration(reloadConversation: boolean) {
+	async function refreshAfterGeneration() {
+		if (generationSettled) return;
+		generationSettled = true;
+		const canonicalConversationId = persistedConversationId;
+		persistedConversationId = null;
+		if (canonicalConversationId && canonicalConversationId !== loadedConversationId) {
+			await goto(`${base}/chat/${canonicalConversationId}`, {
+				replaceState: true,
+				noScroll: true,
+				keepFocus: true
+			});
+			return;
+		}
 		await refreshUsage();
-		if (reloadConversation) await reloadCurrentConversation();
 		await invalidateAll();
-		historyRevision += 1;
 	}
 
 	async function sendMessage(event: SubmitEvent) {
 		event.preventDefault();
 		const content = draft.trim();
-		if (!content || sending || !data.session || quotaExhausted) return;
+		if (!content || sending || quotaExhausted) return;
 
 		chatError = '';
+		generationSettled = false;
+		persistedConversationId = null;
 		pendingDraft = content;
 		const conversation = localConversation(content);
-		currentConversation = conversation;
+		draftConversation = conversation;
 		draft = '';
 		try {
 			await chat.sendMessage(
@@ -203,7 +164,8 @@
 			);
 		} catch (cause) {
 			chatError = cause instanceof Error ? cause.message : 'The recipe assistant could not respond.';
-			draft = content;
+			if (!persistedConversationId) draft = content;
+			await refreshAfterGeneration();
 		}
 	}
 
@@ -211,26 +173,6 @@
 		if (!shouldSubmitComposer(event) || sending || !draft.trim()) return;
 		event.preventDefault();
 		event.currentTarget.form?.requestSubmit();
-	}
-
-	async function importGuestHistory() {
-		importing = true;
-		importError = '';
-		try {
-			const response = await fetch('/api/conversations/import', {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify(await readGuestImport())
-			});
-			if (!response.ok) throw new Error((await response.json()).message ?? 'Import failed.');
-			await clearGuestHistory();
-			hasGuestHistory = false;
-			await invalidateAll();
-		} catch (cause) {
-			importError = cause instanceof Error ? cause.message : 'Guest history could not be imported.';
-		} finally {
-			importing = false;
-		}
 	}
 
 	const promptIdeas = [
@@ -284,12 +226,8 @@
 			<div class="min-h-0 flex-1">
 				<ChatHistory
 					labelledBy="desktop-history-title"
-					authenticated={Boolean(data.session)}
 					conversations={data.conversations}
-					refreshKey={historyRevision}
-					onNew={startConversation}
-					onSelect={selectConversation}
-					onClearGuest={clearGuestSession}
+					activeConversationId={currentConversation?.id}
 				/>
 			</div>
 		</div>
@@ -332,12 +270,8 @@
 							</div>
 							<div class="min-h-0 flex-1">
 								<ChatHistory
-									authenticated={Boolean(data.session)}
 									conversations={data.conversations}
-									refreshKey={historyRevision}
-									onNew={startConversation}
-									onSelect={selectConversation}
-									onClearGuest={clearGuestSession}
+									activeConversationId={currentConversation?.id}
 								/>
 							</div>
 						</Dialog.Content>
@@ -356,39 +290,20 @@
 
 				<div class="min-w-0">
 					<p class="truncate font-black text-surface-950-50">Kitchen chat</p>
-					<p class="truncate text-xs text-surface-600-400">{data.session ? 'Saved to your account' : 'Guest session · local only'}</p>
+					<p class="truncate text-xs text-surface-600-400">Saved to your account</p>
 				</div>
 			</div>
 
 			<div class="flex items-center gap-2">
-				{#if data.session}
-					<a class="btn preset-tonal-surface hidden font-bold sm:inline-flex" href="/settings">Preferences</a>
-					<SignOut signOutPage="signout" options={{ redirectTo: '/' }} className="btn preset-tonal-surface font-bold">
-						<span slot="submitButton">Sign out</span>
-					</SignOut>
-				{:else}
-					<a class="btn preset-filled-primary-500 font-bold" href="/signin?redirectTo=/chat">Sign in</a>
-				{/if}
+				<a class="btn preset-tonal-surface hidden font-bold sm:inline-flex" href="/settings">Preferences</a>
+				<SignOut signOutPage="signout" options={{ redirectTo: '/' }} className="btn preset-tonal-surface font-bold">
+					<span slot="submitButton">Sign out</span>
+				</SignOut>
 				<ThemeSwitch />
 			</div>
 		</header>
 
 		<main class="flex min-h-0 flex-1 flex-col" aria-labelledby="chat-title">
-			{#if data.session && hasGuestHistory}
-				<section class="border-b border-surface-300-700 bg-secondary-500/10 px-4 py-4 sm:px-6" aria-label="Guest history import">
-					<div class="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-3">
-						<div>
-							<p class="font-bold text-surface-950-50">Bring your guest history with you?</p>
-							<p class="mt-1 text-sm text-surface-700-300">Nothing leaves this browser until you choose to import it.</p>
-						</div>
-						<div class="flex items-center gap-2">
-							<button class="btn preset-filled-primary-500 font-bold" type="button" disabled={importing} onclick={importGuestHistory}>{importing ? 'Importing…' : 'Import history'}</button>
-							<button class="btn preset-tonal-surface" type="button" onclick={() => (hasGuestHistory = false)}>Not now</button>
-						</div>
-						{#if importError}<p class="w-full text-sm font-bold text-error-700-300" role="alert">{importError}</p>{/if}
-					</div>
-				</section>
-			{/if}
 			{#if form?.deleteError}<p class="mx-auto mt-4 w-full max-w-4xl rounded-container bg-recipe-red p-3 text-sm text-recipe-red-ink" role="alert">{form.deleteError}</p>{/if}
 			<section class="mx-auto flex w-full max-w-4xl flex-1 flex-col px-4 py-10 sm:px-8 sm:py-14">
 				{#if chat.messages.length === 0}
@@ -404,15 +319,13 @@
 								What would you like to cook?
 							</h1>
 							<p class="mx-auto mt-4 max-w-2xl text-base leading-7 text-surface-700-300 sm:text-lg">
-								{data.session
-									? 'Start a streamed recipe conversation with the AI assistant.'
-									: 'Sign in to ask the AI assistant. Existing guest history remains available in this browser.'}
+								Start a streamed recipe conversation with the AI assistant.
 							</p>
 						</div>
 
 						<div class="mt-10 grid gap-3 md:grid-cols-3" aria-label="Example recipe prompts">
 							{#each promptIdeas as idea}
-								<button class="card bg-surface-50-950 p-4 text-left ring-1 ring-surface-300-700 transition hover:-translate-y-0.5 hover:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-50 sm:p-5" type="button" disabled={!data.session || quotaExhausted} onclick={() => usePrompt(idea.prompt)}>
+								<button class="card bg-surface-50-950 p-4 text-left ring-1 ring-surface-300-700 transition hover:-translate-y-0.5 hover:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-50 sm:p-5" type="button" disabled={quotaExhausted} onclick={() => usePrompt(idea.prompt)}>
 									<span class={`badge px-2.5 py-1 ${idea.accent}`}>{idea.label}</span>
 									<p class="mt-4 text-sm leading-6 text-surface-700-300">“{idea.prompt}”</p>
 								</button>
@@ -442,7 +355,7 @@
 			</section>
 
 			<div class="sticky bottom-0 z-10 border-t border-surface-300-700 bg-surface-50/90 p-4 backdrop-blur-xl dark:bg-recipe-midnight/90 sm:p-6">
-				{#if data.session && aiUsage}
+				{#if aiUsage}
 					<div class="mx-auto mb-3 flex max-w-4xl flex-wrap items-center justify-between gap-2 text-xs" aria-live="polite">
 						<p class="font-bold text-surface-700-300">
 							{aiUsage.user.limit === null
@@ -479,14 +392,14 @@
 							bind:value={draft}
 							onkeydown={handleComposerKeydown}
 							maxlength="8000"
-							disabled={!data.session || quotaExhausted}
+							disabled={quotaExhausted}
 						></textarea>
 						{#if sending}
 							<button class="btn-icon preset-tonal-error" type="button" onclick={() => chat.stop()} aria-label="Stop response">
 								<svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M7 7h10v10H7z" /></svg>
 							</button>
 						{:else}
-							<button class="btn-icon preset-filled-primary-500" type="submit" disabled={!data.session || quotaExhausted || !draft.trim()} aria-label="Send message">
+							<button class="btn-icon preset-filled-primary-500" type="submit" disabled={quotaExhausted || !draft.trim()} aria-label="Send message">
 								<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 									<path d="m5 12 14-7-4 14-3-6-7-1Z" />
 								</svg>
@@ -494,11 +407,7 @@
 						{/if}
 					</div>
 					<p id="chat-availability" class="mt-3 text-center text-xs leading-5 text-surface-600-400">
-						{#if data.session && aiUsage}
-							Messages and completed AI responses are saved to your account. The app-tracked allowance resets at {new Date(aiUsage.shared.resetsAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })}.
-						{:else}
-							<a class="font-bold text-primary-600-400 underline" href={`${base}/signin?redirectTo=/chat`}>Sign in</a> to send a message. Guest history stays in this browser tab and is never sent automatically.
-						{/if}
+						Messages and completed AI responses are saved to your account. The app-tracked allowance resets at {new Date(aiUsage.shared.resetsAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })}.
 					</p>
 				</form>
 			</div>

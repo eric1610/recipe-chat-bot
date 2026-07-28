@@ -39,16 +39,15 @@ product (MVP), and possible enhancements beyond the MVP.
 
 - [x] Create, select, continue, and delete conversations
 - [x] Store signed-in conversation messages in Neon Postgres
-- [x] Store guest conversations in browser `sessionStorage`
-- [x] Keep guest data limited to the current browser tab/session
-- [x] Clearly warn guests that their data will be lost when the session ends
-- [x] Offer signed-in users an explicit import of guest history
-- [x] Clear local guest history only after a successful import
+- [x] Remove legacy guest-history `sessionStorage` and import behavior
+- [x] Use `/chat` for a new conversation and `/chat/[conversationId]` as the canonical route for a
+  persisted conversation
+- [x] Restore the complete ordered message chain for a conversation from Neon on direct navigation
+  or refresh
 - [x] Generate, stream, display, and persist assistant responses for signed-in users
 - [x] Render assistant responses as sanitized Markdown styled with Tailwind Typography, safe links,
   and no remote images
 - [x] Complete the signed-in user-message-to-AI-response chat lifecycle
-- [x] Keep signed-in AI usage separate from guest, browser-only conversation history
 
 ### Platform and delivery
 
@@ -63,15 +62,16 @@ product (MVP), and possible enhancements beyond the MVP.
 - [x] Security headers and Content Security Policy
 - [x] GitHub Actions secret scanning, checks, tests, and dependency auditing
 - [x] Automated dependency updates with pinned GitHub Action revisions
-- [x] Automated tests for guest storage, request guards, session hashing, redirects, import
-  validation, AI quotas, context limits, and provider-error sanitization
+- [x] Automated tests for request guards, session hashing, canonical chat redirects, account-scoped
+  restoration, AI quotas, context limits, and provider-error sanitization
 - [x] Production database migration, deployment, and signed-out API security boundaries validated
 
 ## Focused MVP
 
 The MVP is a safe, reliable, preference-aware recipe assistant. Signed-in AI conversation is now
-live; the primary remaining milestones are preference-aware responses, structured recipe quality,
-anonymous AI access, broader end-to-end testing, and production observability.
+live; the primary remaining milestones are durable route-based conversation restoration,
+preference-aware responses, structured recipe quality, broader end-to-end testing, and production
+observability.
 
 ### AI recipe conversation
 
@@ -82,7 +82,6 @@ anonymous AI access, broader end-to-end testing, and production observability.
 - [x] Include bounded recent, server-owned conversation history in each model request
 - [ ] Apply saved diets, allergies, dislikes, cuisines, cooking skill, household size, and notes to
   signed-in conversations
-- [ ] Keep anonymous chat functional without requiring an account
 - [x] Prevent model credentials, system instructions, and other server secrets from reaching the
   browser
 - [x] Provide clear sending, streaming, completed, cancelled, and failed states
@@ -125,6 +124,12 @@ anonymous AI access, broader end-to-end testing, and production observability.
 
 ### Conversation experience
 
+- [x] Render each recent-chat card as a link to `/chat/[conversationId]` instead of selecting it only
+  in client state
+- [x] Server-load the selected account-owned conversation and its complete ordered message chain
+- [x] Preserve the selected conversation across refresh, direct links, and browser back/forward
+  navigation
+- [x] Return a non-leaking 404 response for missing or cross-account conversation IDs
 - [ ] Generate useful conversation titles from the opening request
 - [ ] Allow users to rename conversations
 - [ ] Preserve message ordering and prevent duplicate messages during retries
@@ -143,8 +148,10 @@ anonymous AI access, broader end-to-end testing, and production observability.
   exempt account
 - [x] Enforce a shared 50-request UTC-day cap and latch provider exhaustion after upstream `429`
 - [x] Enforce ownership checks for every conversation and message operation
-- [ ] Add tests for anonymous chat, authenticated persistence, authorization boundaries, imports,
-  streaming, cancellation, retries, and AI failures
+- [x] Add tests for canonical conversation redirects, full-chain ordering, and authorization
+  boundaries
+- [ ] Add broader tests for authenticated persistence, deletion, browser navigation, streaming,
+  cancellation, retries, and AI failures
 - [ ] Add structured production logging without recording secrets or unnecessary conversation data
 - [ ] Add error monitoring and health visibility for the application, database, and AI provider
 - [x] Track per-user/shared request attempts and token consumption without duplicating message text
@@ -196,8 +203,8 @@ the MVP.
 
 ## MVP completion definition
 
-The MVP is complete when an anonymous or signed-in user can submit a cooking request, receive a
-streamed and useful recipe response, continue the conversation, and recover from expected failure
-states. Guest history must remain session-only, signed-in history must remain private and durable,
-saved preferences must influence responses, and the production service must have appropriate
-testing, safety controls, monitoring, and cost visibility.
+The MVP is complete when a signed-in user can submit a cooking request, receive a streamed and useful
+recipe response, continue the conversation, and restore its complete history from a canonical link.
+Account-scoped history must remain private and durable, saved preferences must influence responses,
+and the production service must have appropriate testing, safety controls, monitoring, and cost
+visibility.

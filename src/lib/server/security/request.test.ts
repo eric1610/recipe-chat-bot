@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { isUuid, readSameOriginJson } from './request';
 
-const url = new URL('https://recipe.example/api/conversations');
+const url = new URL('https://recipe.example/api/chat');
 
 function request(body: string, headers: Record<string, string> = {}) {
 	return new Request(url, {

@@ -1,8 +1,8 @@
 # Recipe Chat Bot
 
 A SvelteKit and Skeleton 5 recipe-chat foundation with Auth.js, Google and GitHub OAuth,
-Neon Postgres history, user cooking preferences, session-only guest storage, and streamed
-OpenRouter recipe responses for signed-in users.
+Neon Postgres history, canonical conversation links, user cooking preferences, and streamed
+OpenRouter recipe responses.
 
 ## Stack
 
@@ -10,7 +10,7 @@ OpenRouter recipe responses for signed-in users.
 - Auth.js `@auth/sveltekit` 1.11.3 with database sessions
 - Drizzle ORM and Neon serverless Postgres
 - AI SDK 7 with the OpenRouter provider and Svelte streaming client
-- Browser `sessionStorage` with a 12-hour inactivity limit for guest conversation data
+- Server-rendered `/chat/[conversationId]` routes backed by account-scoped conversation data
 - Vercel server runtime and GitHub Actions validation
 
 Auth.js currently labels its SvelteKit integration experimental even though 1.11.3 is the
@@ -82,9 +82,9 @@ commercial host before using the application commercially.
 - Message input and model output are normalized before storage. Assistant Markdown is converted to
   HTML only at display time, with raw HTML escaped, remote images disabled, and generated HTML
   restricted to an explicit tag, attribute, and URL-scheme allowlist.
-- Guest history stays in `sessionStorage`, expires after 12 hours of inactivity, and can be cleared
-  from the chat history panel. After sign-in, the user must explicitly approve an idempotent import;
-  local records are cleared only after the server confirms success.
+- `/chat` starts a new conversation. After its first message is persisted, the application moves to
+  `/chat/[conversationId]`; direct navigation and refresh restore the complete ordered message chain
+  from Neon after an ownership check.
 - Google and GitHub accounts with matching emails are not linked automatically.
 - Account deletion cascades through OAuth accounts, sessions, preferences, conversations, and
   messages and identifiable AI-attempt records stored by this application. Anonymous aggregate
@@ -100,7 +100,7 @@ commercial host before using the application commercially.
 - Signed-in users can stream responses from OpenRouter's `openrouter/free` router. The API key,
   system instructions, quota decisions, and provider errors remain server-side.
 - Requests include at most the ten most recent user/assistant messages and 12,000 characters of
-  server-owned conversation context. Guest history is never sent automatically.
+  server-owned conversation context loaded after an account-ownership check.
 - Provider routing sets `data_collection: deny`, limiting selection to providers that declare they
   do not collect prompts for training. Free-model availability can therefore vary.
 - Each upstream attempt is counted conservatively against the shared UTC-day window. Standard users

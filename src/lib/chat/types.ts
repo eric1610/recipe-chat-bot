@@ -21,11 +21,6 @@ export interface StoredMessage {
 	createdAt: string;
 }
 
-export interface ConversationImport {
-	conversations: StoredConversation[];
-	messages: StoredMessage[];
-}
-
 export interface UserPreferences {
 	diets: string[];
 	allergies: string[];
