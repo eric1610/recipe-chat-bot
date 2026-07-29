@@ -48,6 +48,9 @@ include live secrets, full conversation content, or personal data in the report.
   history is loaded on the server after ownership checks. Provider routing denies providers that
   declare prompt collection, and raw provider errors are replaced with sanitized application
   messages.
+- Account cooking preferences are loaded using the authenticated user ID and included in provider
+  prompts as bounded, normalized, untrusted data. They are not returned to the chat client, copied
+  into message history, or recorded in AI-attempt metadata.
 - AI-attempt records contain identifiers, status, model, timestamps, and token totals but do not
   duplicate prompt or response content. User deletion removes identifiable attempt records while
   aggregate UTC quota-window totals remain for enforcement.

@@ -1,7 +1,8 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import { createNeonDatabase, type Database } from '$lib/server/db';
-import { conversations, messages, users } from '$lib/server/db/schema';
+import { conversations, messages, userPreferences, users } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
+import { loadUserPreferences } from '$lib/server/ai/preferences';
 import { loadChatData } from './page';
 
 const testDatabaseUrl = process.env.TEST_DATABASE_URL;
@@ -96,6 +97,32 @@ describeDatabase('backend-restored conversation pages', () => {
 				status: 404,
 				body: { message: 'Conversation not found.' }
 			});
+		} finally {
+			await db.delete(users).where(eq(users.id, ownerId));
+			await db.delete(users).where(eq(users.id, otherId));
+		}
+	});
+
+	it('loads cooking preferences only for the authenticated user ID', async () => {
+		const db = database as Database;
+		const ownerId = `preference-owner-${crypto.randomUUID()}`;
+		const otherId = `preference-other-${crypto.randomUUID()}`;
+
+		try {
+			await db.insert(users).values([
+				{ id: ownerId, email: `${ownerId}@example.test` },
+				{ id: otherId, email: `${otherId}@example.test` }
+			]);
+			await db.insert(userPreferences).values([
+				{ userId: ownerId, allergies: ['peanuts'], notes: 'Owner profile' },
+				{ userId: otherId, allergies: ['shellfish'], notes: 'Other profile' }
+			]);
+
+			await expect(loadUserPreferences(db, ownerId)).resolves.toMatchObject({
+				allergies: ['peanuts'],
+				notes: 'Owner profile'
+			});
+			await expect(loadUserPreferences(db, 'missing-user')).resolves.toBeNull();
 		} finally {
 			await db.delete(users).where(eq(users.id, ownerId));
 			await db.delete(users).where(eq(users.id, otherId));

@@ -9,6 +9,7 @@ import {
 	persistCompletedAssistant,
 	persistUserMessageForGeneration
 } from '$lib/server/ai/persistence';
+import { buildPreferenceInstructions, loadUserPreferences } from '$lib/server/ai/preferences';
 import {
 	getUtcQuotaWindow,
 	isQuotaExempt,
@@ -87,6 +88,7 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 	});
 	const model = openrouter(OPENROUTER_MODEL);
 	let context: ModelMessage[] = [];
+	let instructions = recipeInstructions;
 	let reservation;
 	try {
 		reservation = await reserveAiQuota(
@@ -110,6 +112,9 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 					session.user.id,
 					payload.conversationId
 				);
+				instructions = `${recipeInstructions}${buildPreferenceInstructions(
+					await loadUserPreferences(transaction, session.user.id)
+				)}`;
 			}
 		);
 	} catch {
@@ -149,7 +154,7 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 	try {
 		const result = streamText({
 			model,
-			instructions: recipeInstructions,
+			instructions,
 			messages: context,
 			maxOutputTokens: 1_200,
 			maxRetries: 0,

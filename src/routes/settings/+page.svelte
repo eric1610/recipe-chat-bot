@@ -36,7 +36,7 @@
 			</label>
 			<label class="grid gap-2 font-bold text-surface-950-50">Allergies
 				<input class="input" name="allergies" value={join(data.preferences.allergies)} placeholder="Peanuts, shellfish" />
-				<span class="text-xs font-normal text-surface-600-400">This context does not replace medical advice.</span>
+				<span class="text-xs font-normal text-surface-600-400">Saved allergies are treated as strict constraints. Always verify labels and cross-contamination; this does not replace medical advice.</span>
 			</label>
 			<label class="grid gap-2 font-bold text-surface-950-50">Disliked ingredients
 				<input class="input" name="dislikedIngredients" value={join(data.preferences.dislikedIngredients)} placeholder="Cilantro, olives" />
@@ -59,6 +59,7 @@
 
 		<label class="grid gap-2 font-bold text-surface-950-50">Anything else the assistant should know?
 			<textarea class="textarea min-h-36" name="notes" maxlength="2000" placeholder="Weeknights should stay under 30 minutes…">{data.preferences.notes}</textarea>
+			<span class="text-xs font-normal text-surface-600-400">Cooking preferences are sent to the selected AI provider with each chat request. Avoid unrelated medical or highly sensitive information.</span>
 		</label>
 
 		<div><button class="btn preset-filled-primary-500 font-bold" type="submit">Save preferences</button></div>

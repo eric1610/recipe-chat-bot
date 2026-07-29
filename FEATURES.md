@@ -33,7 +33,7 @@ product (MVP), and possible enhancements beyond the MVP.
   household size, and free-form notes
 - [x] Complete account deletion for application-owned accounts, sessions, preferences,
   conversations, and messages
-- [ ] Connect saved cooking context to AI responses — **Foundation only**
+- [x] Connect saved cooking context to AI responses
 
 ### Conversations and storage
 
@@ -80,7 +80,7 @@ observability.
 - [x] Stream assistant responses into the chat workspace
 - [x] Save completed assistant messages to the correct signed-in conversation
 - [x] Include bounded recent, server-owned conversation history in each model request
-- [ ] Apply saved diets, allergies, dislikes, cuisines, cooking skill, household size, and notes to
+- [x] Apply saved diets, allergies, dislikes, cuisines, cooking skill, household size, and notes to
   signed-in conversations
 - [x] Prevent model credentials, system instructions, and other server secrets from reaching the
   browser
@@ -176,6 +176,16 @@ the MVP.
 - [ ] **TBD:** Serving-size scaling with adjusted ingredient quantities
 - [ ] **TBD:** More advanced substitutions based on pantry contents and dietary needs
 - [ ] **TBD:** Nutritional estimates with source and uncertainty disclosures
+
+### Semantic recipe discovery
+
+- [ ] **TBD:** Store generated and saved recipes as structured, independently addressable records
+- [ ] **TBD:** Enable Neon `pgvector` for recipe-embedding storage and similarity queries
+- [ ] **TBD:** Generate versioned embeddings from stable recipe titles, ingredients, cuisines,
+  techniques, and descriptions
+- [ ] **TBD:** Add semantic recipe search and related-recipe recommendations
+- [ ] **TBD:** Combine vector similarity with SQL ownership, allergy, dietary, and time filters
+- [ ] **TBD:** Add an HNSW cosine index when recipe volume and measured query performance justify it
 
 ### Inputs and cooking modes
 

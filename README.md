@@ -79,6 +79,10 @@ commercial host before using the application commercially.
 ## Data behavior
 
 - Signed-in conversations and preferences are scoped to the Auth.js session user ID in Neon.
+- Saved cooking preferences are loaded by authenticated user ID for each AI request and sent to the
+  selected OpenRouter provider as bounded, server-owned instructions. Allergy entries are strict;
+  other cooking preferences are defaults that an explicit request may override. Users should avoid
+  storing unrelated medical or highly sensitive information in preference notes.
 - Message input and model output are normalized before storage. Assistant Markdown is converted to
   HTML only at display time, with raw HTML escaped, remote images disabled, and generated HTML
   restricted to an explicit tag, attribute, and URL-scheme allowlist.
@@ -101,6 +105,8 @@ commercial host before using the application commercially.
   system instructions, quota decisions, and provider errors remain server-side.
 - Requests include at most the ten most recent user/assistant messages and 12,000 characters of
   server-owned conversation context loaded after an account-ownership check.
+- Requests may also include up to 4,000 characters of normalized account cooking preferences. These
+  values are treated as untrusted data and are not copied into conversation messages or logs.
 - Provider routing sets `data_collection: deny`, limiting selection to providers that declare they
   do not collect prompts for training. Free-model availability can therefore vary.
 - Each upstream attempt is counted conservatively against the shared UTC-day window. Standard users
