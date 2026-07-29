@@ -1,6 +1,7 @@
 import { error } from '@sveltejs/kit';
 
 const jsonContentType = /^application\/json(?:\s*;|$)/i;
+const formContentType = /^(?:application\/x-www-form-urlencoded|multipart\/form-data)(?:\s*;|$)/i;
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -13,22 +14,32 @@ export function isUuid(value: unknown): value is string {
 	);
 }
 
-export async function readSameOriginJson(
-	request: Request,
-	url: URL,
-	maxBytes = 1_048_576
-): Promise<unknown> {
+function requireSameOrigin(request: Request, url: URL): void {
 	const origin = request.headers.get('origin');
 	if (origin !== url.origin) error(403, 'Cross-origin mutations are not allowed.');
 
 	const fetchSite = request.headers.get('sec-fetch-site');
 	if (fetchSite && fetchSite !== 'same-origin') error(403, 'Cross-site mutations are not allowed.');
+}
+
+function rejectDeclaredOversize(request: Request, maxBytes: number): void {
+	const declaredLength = Number(request.headers.get('content-length'));
+	if (Number.isFinite(declaredLength) && declaredLength > maxBytes) {
+		error(413, 'The request payload is too large.');
+	}
+}
+
+export async function readSameOriginJson(
+	request: Request,
+	url: URL,
+	maxBytes = 1_048_576
+): Promise<unknown> {
+	requireSameOrigin(request, url);
 
 	const contentType = request.headers.get('content-type') ?? '';
 	if (!jsonContentType.test(contentType)) error(415, 'Content-Type must be application/json.');
 
-	const declaredLength = Number(request.headers.get('content-length'));
-	if (Number.isFinite(declaredLength) && declaredLength > maxBytes) error(413, 'The request payload is too large.');
+	rejectDeclaredOversize(request, maxBytes);
 
 	const body = await request.text();
 	if (new TextEncoder().encode(body).byteLength > maxBytes) error(413, 'The request payload is too large.');
@@ -37,5 +48,28 @@ export async function readSameOriginJson(
 		return JSON.parse(body) as unknown;
 	} catch {
 		error(400, 'The JSON payload is invalid.');
+	}
+}
+
+export async function readSameOriginFormData(
+	request: Request,
+	url: URL,
+	maxBytes = 32_768
+): Promise<FormData> {
+	requireSameOrigin(request, url);
+
+	const contentType = request.headers.get('content-type') ?? '';
+	if (!formContentType.test(contentType)) {
+		error(415, 'Content-Type must be form encoded.');
+	}
+	rejectDeclaredOversize(request, maxBytes);
+
+	const body = await request.arrayBuffer();
+	if (body.byteLength > maxBytes) error(413, 'The request payload is too large.');
+
+	try {
+		return await new Response(body, { headers: { 'content-type': contentType } }).formData();
+	} catch {
+		error(400, 'The form payload is invalid.');
 	}
 }

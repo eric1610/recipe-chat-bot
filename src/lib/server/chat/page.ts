@@ -3,6 +3,7 @@ import { error, fail, redirect } from '@sveltejs/kit';
 import { getAiUsage, isQuotaExempt } from '$lib/server/ai/quota';
 import { getDatabase, type Database } from '$lib/server/db';
 import { conversations, messages, users } from '$lib/server/db/schema';
+import { isUuid, readSameOriginFormData } from '$lib/server/security/request';
 import { and, asc, desc, eq } from 'drizzle-orm';
 
 export async function loadChatData(
@@ -78,15 +79,16 @@ export async function loadChatData(
 export async function deleteChatConversation(
 	request: Request,
 	locals: App.Locals,
+	url: URL,
 	activeConversationId?: string
 ) {
 	const session = await locals.auth();
 	if (!session?.user?.id) return fail(401, { deleteError: 'Sign in to delete conversations.' });
 
-	const formData = await request.formData();
+	const formData = await readSameOriginFormData(request, url, 1_024);
 	const conversationId = formData.get('conversationId');
-	if (typeof conversationId !== 'string') {
-		return fail(400, { deleteError: 'A conversation ID is required.' });
+	if (!isUuid(conversationId)) {
+		return fail(400, { deleteError: 'A valid conversation ID is required.' });
 	}
 
 	await getDatabase()

@@ -9,5 +9,5 @@ export const load: PageServerLoad = async ({ locals }) => {
 };
 
 export const actions: Actions = {
-	deleteConversation: ({ request, locals }) => deleteChatConversation(request, locals)
+	deleteConversation: ({ request, locals, url }) => deleteChatConversation(request, locals, url)
 };

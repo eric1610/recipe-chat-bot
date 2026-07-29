@@ -16,6 +16,6 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 };
 
 export const actions: Actions = {
-	deleteConversation: ({ request, locals, params }) =>
-		deleteChatConversation(request, locals, params.conversationId)
+	deleteConversation: ({ request, locals, params, url }) =>
+		deleteChatConversation(request, locals, url, params.conversationId)
 };

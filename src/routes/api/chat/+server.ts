@@ -62,9 +62,10 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 	if (!session?.user?.id) error(401, 'Sign in to use the recipe assistant.');
 	if (!env.OPENROUTER_API_KEY) error(503, 'The recipe assistant is not configured yet.');
 
+	const requestBody = await readSameOriginJson(request, url, 16_384);
 	let payload;
 	try {
-		payload = parseChatGenerationRequest(await readSameOriginJson(request, url, 16_384));
+		payload = parseChatGenerationRequest(requestBody);
 	} catch (cause) {
 		error(400, cause instanceof Error ? cause.message : 'The chat request is invalid.');
 	}

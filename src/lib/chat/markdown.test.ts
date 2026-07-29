@@ -33,4 +33,17 @@ describe('renderSafeMarkdown', () => {
 		expect(html).not.toContain('<img');
 		expect(html).not.toContain('pixel.gif');
 	});
+
+	it('blocks encoded, data, protocol-relative, SVG, and event-handler payloads', () => {
+		const html = renderSafeMarkdown(
+			'[encoded](jav&#x61;script:alert(1)) [data](data:text/html,<script>alert(1)</script>)\n\n' +
+				'[relative](//attacker.example/path)\n\n' +
+				'<svg onload="alert(1)"><a href="javascript:alert(2)">x</a></svg>'
+		);
+
+		expect(html).not.toMatch(/<a\b[^>]*href="(?:javascript:|data:|\/\/)/i);
+		expect(html).not.toMatch(/<(?:svg|script)|<[^>]+\sonload=/i);
+		expect(html).toContain('&lt;svg');
+		expect(html).toContain('onload="alert(1)"');
+	});
 });

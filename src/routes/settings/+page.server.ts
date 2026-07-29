@@ -2,6 +2,7 @@ import { emptyPreferences } from '$lib/chat/types';
 import { getDatabase } from '$lib/server/db';
 import { userPreferences, users } from '$lib/server/db/schema';
 import { parsePreferences } from '$lib/server/preferences';
+import { readSameOriginFormData } from '$lib/server/security/request';
 import { eq } from 'drizzle-orm';
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
@@ -36,11 +37,12 @@ export const load: PageServerLoad = async ({ locals }) => {
 };
 
 export const actions: Actions = {
-	updatePreferences: async ({ request, locals }) => {
+	updatePreferences: async ({ request, locals, url }) => {
 		const userId = await requireUserId(locals);
+		const formData = await readSameOriginFormData(request, url, 24_576);
 		let preferences;
 		try {
-			preferences = parsePreferences(await request.formData());
+			preferences = parsePreferences(formData);
 		} catch (cause) {
 			return fail(400, { preferenceError: cause instanceof Error ? cause.message : 'Preferences are invalid.' });
 		}
@@ -56,9 +58,9 @@ export const actions: Actions = {
 		return { preferencesSaved: true };
 	},
 
-	deleteAccount: async ({ request, locals, cookies }) => {
+	deleteAccount: async ({ request, locals, cookies, url }) => {
 		const userId = await requireUserId(locals);
-		const formData = await request.formData();
+		const formData = await readSameOriginFormData(request, url, 512);
 		if (formData.get('confirmation') !== 'DELETE MY ACCOUNT') {
 			return fail(400, { deleteError: 'Type DELETE MY ACCOUNT to confirm permanent deletion.' });
 		}

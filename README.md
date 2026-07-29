@@ -86,6 +86,9 @@ commercial host before using the application commercially.
 - Message input and model output are normalized before storage. Assistant Markdown is converted to
   HTML only at display time, with raw HTML escaped, remote images disabled, and generated HTML
   restricted to an explicit tag, attribute, and URL-scheme allowlist.
+- State-changing JSON and form requests require same-origin metadata and bounded bodies. Preference
+  fields use strict names, types, counts, and lengths, while conversation identifiers are validated
+  as UUIDs before account-scoped database operations.
 - `/chat` starts a new conversation. After its first message is persisted, the application moves to
   `/chat/[conversationId]`; direct navigation and refresh restore the complete ordered message chain
   from Neon after an ownership check.

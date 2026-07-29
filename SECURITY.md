@@ -48,9 +48,15 @@ include live secrets, full conversation content, or personal data in the report.
   history is loaded on the server after ownership checks. Provider routing denies providers that
   declare prompt collection, and raw provider errors are replaced with sanitized application
   messages.
+- Application form mutations require a same-origin request, an approved form content type, and a
+  bounded body before parsing. Preference fields reject unknown, duplicate, file, oversized, and
+  invalid values; conversation mutations require canonical UUIDs before database access.
 - Account cooking preferences are loaded using the authenticated user ID and included in provider
   prompts as bounded, normalized, untrusted data. They are not returned to the chat client, copied
   into message history, or recorded in AI-attempt metadata.
+- Svelte escapes ordinary stored text. The only raw-HTML rendering boundary is assistant Markdown,
+  where authored HTML is escaped and generated HTML is restricted to an explicit tag, attribute,
+  and URL-scheme allowlist with remote images disabled.
 - AI-attempt records contain identifiers, status, model, timestamps, and token totals but do not
   duplicate prompt or response content. User deletion removes identifiable attempt records while
   aggregate UTC quota-window totals remain for enforcement.

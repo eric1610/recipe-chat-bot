@@ -115,4 +115,28 @@ describe('preference-aware chat generation', () => {
 		);
 		expect(await response.text()).not.toContain('peanuts');
 	});
+
+	it('preserves the cross-origin rejection before validation or provider access', async () => {
+		const request = new Request('https://recipe.example/api/chat', {
+			method: 'POST',
+			headers: {
+				'content-type': 'application/json',
+				origin: 'https://attacker.example'
+			},
+			body: JSON.stringify({
+				conversationId,
+				message: { id: messageId, content: 'Make dinner' }
+			})
+		});
+
+		await expect(
+			POST({
+				request,
+				locals: { auth: vi.fn().mockResolvedValue({ user: { id: 'user-1' } }) },
+				url: new URL(request.url)
+			} as never)
+		).rejects.toMatchObject({ status: 403 });
+		expect(mocks.reserveAiQuota).not.toHaveBeenCalled();
+		expect(mocks.streamText).not.toHaveBeenCalled();
+	});
 });
