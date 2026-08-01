@@ -5,6 +5,7 @@ import {
 	aiQuotaWindows,
 	conversations,
 	messages,
+	securityRateLimits,
 	userPreferences,
 	users
 } from '$lib/server/db/schema';
@@ -60,6 +61,9 @@ describeDatabase('AI quota cleanup with PostgreSQL', () => {
 		const currentWindow = new Date('2030-05-10T00:00:00.000Z');
 		const previousWindow = new Date('2030-05-09T00:00:00.000Z');
 		const oldWindow = new Date('2030-05-08T00:00:00.000Z');
+		const expiredRateLimitKey = `${userId}:expired`;
+		const boundaryRateLimitKey = `${userId}:boundary`;
+		const activeRateLimitKey = `${userId}:active`;
 
 		try {
 			await db.insert(users).values({ id: userId, email: `${userId}@example.test` });
@@ -153,12 +157,39 @@ describeDatabase('AI quota cleanup with PostgreSQL', () => {
 					updatedAt: now
 				}
 			]);
+			await db.insert(securityRateLimits).values([
+				{
+					key: expiredRateLimitKey,
+					userId,
+					action: 'test',
+					windowStart: new Date(now.getTime() - 120_000),
+					count: 11,
+					expiresAt: new Date(now.getTime() - 1)
+				},
+				{
+					key: boundaryRateLimitKey,
+					userId,
+					action: 'test',
+					windowStart: new Date(now.getTime() - 60_000),
+					count: 10,
+					expiresAt: now
+				},
+				{
+					key: activeRateLimitKey,
+					userId,
+					action: 'test',
+					windowStart: now,
+					count: 1,
+					expiresAt: new Date(now.getTime() + 60_000)
+				}
+			]);
 
 			await expect(cleanupAiQuota(db, now)).resolves.toEqual({
 				skipped: false,
 				expiredAttempts: 1,
 				deletedAttempts: 1,
-				deletedWindows: 1
+				deletedWindows: 1,
+				deletedRateLimits: 1
 			});
 
 			const attempts = await db
@@ -234,11 +265,24 @@ describeDatabase('AI quota cleanup with PostgreSQL', () => {
 				providerBlockedUntil: new Date('2030-05-10T18:00:00.000Z')
 			});
 
+			const rateLimits = await db
+				.select({ key: securityRateLimits.key })
+				.from(securityRateLimits)
+				.where(eq(securityRateLimits.userId, userId));
+			expect(rateLimits).toEqual(
+				expect.arrayContaining([
+					{ key: boundaryRateLimitKey },
+					{ key: activeRateLimitKey }
+				])
+			);
+			expect(rateLimits).not.toContainEqual({ key: expiredRateLimitKey });
+
 			await expect(cleanupAiQuota(db, now)).resolves.toEqual({
 				skipped: false,
 				expiredAttempts: 0,
 				deletedAttempts: 0,
-				deletedWindows: 0
+				deletedWindows: 0,
+				deletedRateLimits: 0
 			});
 		} finally {
 			await db.delete(users).where(eq(users.id, userId));
@@ -273,7 +317,8 @@ describeDatabase('AI quota cleanup with PostgreSQL', () => {
 				skipped: true,
 				expiredAttempts: 0,
 				deletedAttempts: 0,
-				deletedWindows: 0
+				deletedWindows: 0,
+				deletedRateLimits: 0
 			});
 		} finally {
 			releaseLock();

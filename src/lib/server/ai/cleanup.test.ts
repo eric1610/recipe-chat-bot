@@ -11,7 +11,8 @@ describe('AI quota cleanup policy', () => {
 			now,
 			attemptExpiry: new Date('2030-05-10T17:28:00.000Z'),
 			attemptRetention: new Date('2030-05-03T17:30:00.000Z'),
-			quotaWindowRetention: new Date('2030-05-09T00:00:00.000Z')
+			quotaWindowRetention: new Date('2030-05-09T00:00:00.000Z'),
+			rateLimitExpiry: now
 		});
 		expect(AI_ATTEMPT_RETENTION_DAYS).toBe(7);
 	});

@@ -62,9 +62,29 @@ include live secrets, full conversation content, or personal data in the report.
   aggregate UTC quota-window totals remain for enforcement.
 - Scheduled cleanup deletes AI-attempt metadata seven days after `created_at`, expires abandoned
   active attempts after two minutes, and retains only the current and immediately previous UTC
-  quota windows. Conversation, message, preference, and user records are outside the cleanup
-  deletion boundary. Neon backup and point-in-time recovery retention can delay physical removal
-  from backup copies.
+  quota windows. It also deletes expired application rate-limit rows, while preserving active
+  windows. Conversation, message, preference, and user records are outside the cleanup deletion
+  boundary. Neon backup and point-in-time recovery retention can delay physical removal from backup
+  copies.
 - The 50-attempt shared daily ceiling is reserved transactionally before provider access. A
   provider `429` latches shared exhaustion using `Retry-After`, preventing repeated calls against
   an exhausted key.
+
+## DDoS and traffic-abuse response
+
+- Vercel's platform firewall is the primary L3/L4/L7 DDoS boundary. The application database
+  limiter is an authenticated abuse and spend control, not a substitute for edge mitigation.
+- A published Vercel WAF rule observes `POST /api/chat` by source IP using a 20-request fixed
+  60-second window. It remains in Log mode for 24 hours before returning `429`, unless an active
+  attack requires immediate enforcement.
+- During an incident, inspect Vercel Firewall traffic by path, IP, ASN, country, and JA4 fingerprint.
+  Confirm whether function, Neon, and OpenRouter usage is increasing before changing application
+  limits.
+- For a sustained or distributed attack, enable Vercel Attack Challenge Mode with
+  `pnpm dlx vercel firewall attack-mode enable --project recipe-chat-bot`. This challenges legitimate
+  visitors too, so disable it with the corresponding `disable` command after traffic normalizes.
+- Use targeted IP blocks only for repeat sources. Do not pause automatic system mitigations or add
+  bypass rules during an incident.
+- After recovery, verify sign-in and one streamed chat response, review usage, record the affected
+  routes and mitigation timeline privately, and remove temporary IP blocks that are no longer
+  needed.

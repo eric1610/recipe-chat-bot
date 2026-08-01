@@ -64,14 +64,18 @@ pnpm run db:generate
 4. Use a least-privileged Neon role for the runtime `DATABASE_URL`. Keep the schema-owner migration
    credential outside Vercel and use it only while running `pnpm run db:migrate`. Before enabling
    cleanup, verify the runtime role can update `ai_generation_attempts` and delete from
-   `ai_generation_attempts` and `ai_quota_windows` without granting schema-owner privileges.
+   `ai_generation_attempts`, `ai_quota_windows`, and `security_rate_limits` without granting
+   schema-owner privileges.
 5. Run committed migrations before deploying application code that requires the new schema.
 6. Deploy `main` through Vercel's Git integration. Preview and development deployments are blocked
    from receiving production credentials, and non-`main` Vercel builds are ignored.
 7. GitHub Actions scans the full Git history for secrets, runs checks and tests, and audits the
    dependency graph. Vercel performs the only production build and deployment.
-8. Vercel invokes `/api/cron/ai-quota-cleanup` daily during the 02:00 UTC hour. After the first
-   deployment, verify the Cron Jobs dashboard shows a successful authenticated invocation.
+8. Vercel invokes `/api/cron/ai-quota-cleanup` daily during the 02:00 UTC hour to prune expired AI
+   metadata, quota windows, and application rate-limit rows. After the first deployment, verify the
+   Cron Jobs dashboard shows a successful authenticated invocation.
+9. In Vercel Firewall, rate-limit `POST /api/chat` by IP. Begin with a 20-request/60-second fixed
+	window in Log mode, observe production traffic for 24 hours, and then enforce the rule with `429`.
 
 Vercel Hobby is intended for personal, non-commercial projects. Choose a suitable paid or
 commercial host before using the application commercially.
@@ -122,5 +126,9 @@ commercial host before using the application commercially.
   OpenRouter may have received them, but they do not consume the user's successful-response
   allowance. Completed assistant messages and token totals are saved only after streaming finishes
   successfully.
+- Vercel provides the network-level DDoS boundary. A published `/api/chat` WAF rule currently logs
+  per-IP traffic above 20 requests per minute for baseline review before `429` enforcement. The
+  authenticated Postgres limiter allows 10 attempts per user per minute and caps its stored counter
+  at 11 to avoid repeated write amplification.
 - OAuth access, refresh, and ID tokens are not retained. Database session tokens are stored as
   keyed hashes, and rotating `AUTH_SECRET` invalidates existing sessions.

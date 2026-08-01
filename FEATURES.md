@@ -60,6 +60,7 @@ product (MVP), and possible enhancements beyond the MVP.
 - [x] Hashed database session tokens without retained OAuth provider tokens
 - [x] Same-origin JSON request enforcement, payload limits, per-user rate limits, and storage quotas
 - [x] Security headers and Content Security Policy
+- [x] Automatic Vercel network-level DDoS mitigation
 - [x] GitHub Actions secret scanning, checks, tests, and dependency auditing
 - [x] Automated dependency updates with pinned GitHub Action revisions
 - [x] Automated tests for request guards, session hashing, canonical chat redirects, account-scoped
@@ -144,6 +145,9 @@ observability.
 - [x] Normalize untrusted message input and model output before storage, then sanitize Markdown HTML
   whenever stored assistant content is rendered
 - [x] Add per-user rate limiting, storage quotas, and abuse protection for authenticated persistence
+- [x] Cap application rate-limit counters and prune expired windows through the authenticated cron
+- [ ] Enforce and production-verify the `/api/chat` Vercel WAF rate limit after its 24-hour Log-mode
+  observation period
 - [x] Enforce the current 10-successful-response per-user UTC-day AI cap with a server-configured
   exempt account
 - [x] Enforce a shared 50-request UTC-day cap and latch provider exhaustion after upstream `429`

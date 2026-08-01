@@ -41,7 +41,8 @@ describe('AI quota cleanup endpoint', () => {
 			skipped: false,
 			expiredAttempts: 2,
 			deletedAttempts: 3,
-			deletedWindows: 1
+			deletedWindows: 1,
+			deletedRateLimits: 4
 		});
 		const handler = _createCronCleanupHandler({
 			getSecret: () => secret,
@@ -56,7 +57,8 @@ describe('AI quota cleanup endpoint', () => {
 			skipped: false,
 			expiredAttempts: 2,
 			deletedAttempts: 3,
-			deletedWindows: 1
+			deletedWindows: 1,
+			deletedRateLimits: 4
 		});
 		expect(cleanup).toHaveBeenCalledWith(database);
 	});

@@ -1,5 +1,5 @@
 import type { Database } from '$lib/server/db';
-import { aiGenerationAttempts, aiQuotaWindows } from '$lib/server/db/schema';
+import { aiGenerationAttempts, aiQuotaWindows, securityRateLimits } from '$lib/server/db/schema';
 import { and, inArray, lt, sql } from 'drizzle-orm';
 import { AI_ATTEMPT_EXPIRY_MS, getUtcQuotaWindow } from './quota';
 
@@ -13,6 +13,7 @@ export interface AiCleanupCutoffs {
 	attemptExpiry: Date;
 	attemptRetention: Date;
 	quotaWindowRetention: Date;
+	rateLimitExpiry: Date;
 }
 
 export interface AiCleanupResult {
@@ -20,6 +21,7 @@ export interface AiCleanupResult {
 	expiredAttempts: number;
 	deletedAttempts: number;
 	deletedWindows: number;
+	deletedRateLimits: number;
 }
 
 export function getAiCleanupCutoffs(now: Date): AiCleanupCutoffs {
@@ -30,7 +32,8 @@ export function getAiCleanupCutoffs(now: Date): AiCleanupCutoffs {
 		attemptRetention: new Date(now.getTime() - AI_ATTEMPT_RETENTION_MS),
 		// Keep the current and immediately previous UTC windows so a cross-midnight attempt
 		// cannot lose the provider window it reserved against.
-		quotaWindowRetention: new Date(currentWindow.start.getTime() - 86_400_000)
+		quotaWindowRetention: new Date(currentWindow.start.getTime() - 86_400_000),
+		rateLimitExpiry: now
 	};
 }
 
@@ -49,7 +52,8 @@ export async function cleanupAiQuota(
 				skipped: true,
 				expiredAttempts: 0,
 				deletedAttempts: 0,
-				deletedWindows: 0
+				deletedWindows: 0,
+				deletedRateLimits: 0
 			};
 		}
 
@@ -78,12 +82,17 @@ export async function cleanupAiQuota(
 			.delete(aiQuotaWindows)
 			.where(lt(aiQuotaWindows.windowStart, cutoffs.quotaWindowRetention))
 			.returning({ provider: aiQuotaWindows.provider });
+		const deletedRateLimits = await tx
+			.delete(securityRateLimits)
+			.where(lt(securityRateLimits.expiresAt, cutoffs.rateLimitExpiry))
+			.returning({ key: securityRateLimits.key });
 
 		return {
 			skipped: false,
 			expiredAttempts: expiredAttempts.length,
 			deletedAttempts: deletedAttempts.length,
-			deletedWindows: deletedWindows.length
+			deletedWindows: deletedWindows.length,
+			deletedRateLimits: deletedRateLimits.length
 		};
 	});
 }

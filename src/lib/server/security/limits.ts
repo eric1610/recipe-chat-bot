@@ -18,27 +18,28 @@ export async function consumeRateLimit(
 	userId: string,
 	action: string,
 	limit: number,
-	windowMs: number
+	windowMs: number,
+	now = new Date()
 ): Promise<RateLimitResult> {
-	const now = Date.now();
-	const windowStartMs = Math.floor(now / windowMs) * windowMs;
+	const nowMs = now.getTime();
+	const windowStartMs = Math.floor(nowMs / windowMs) * windowMs;
 	const windowStart = new Date(windowStartMs);
 	const expiresAt = new Date(windowStartMs + windowMs * 2);
 	const key = `${userId}:${action}:${windowStartMs}`;
 
-	await database.delete(securityRateLimits).where(lt(securityRateLimits.expiresAt, new Date(now)));
 	const [record] = await database
 		.insert(securityRateLimits)
 		.values({ key, userId, action, windowStart, count: 1, expiresAt })
 		.onConflictDoUpdate({
 			target: securityRateLimits.key,
-			set: { count: sql`${securityRateLimits.count} + 1` }
+			set: { count: sql`${securityRateLimits.count} + 1` },
+			setWhere: lt(securityRateLimits.count, limit + 1)
 		})
 		.returning({ count: securityRateLimits.count });
 
 	return {
-		allowed: record.count <= limit,
-		retryAfter: Math.max(1, Math.ceil((windowStartMs + windowMs - now) / 1000))
+		allowed: Boolean(record && record.count <= limit),
+		retryAfter: Math.max(1, Math.ceil((windowStartMs + windowMs - nowMs) / 1_000))
 	};
 }
 
