@@ -126,8 +126,8 @@ commercial host before using the application commercially.
   OpenRouter may have received them, but they do not consume the user's successful-response
   allowance. Completed assistant messages and token totals are saved only after streaming finishes
   successfully.
-- Vercel provides the network-level DDoS boundary. A published `/api/chat` WAF rule currently logs
-  per-IP traffic above 20 requests per minute for baseline review before `429` enforcement. The
+- Vercel provides the network-level DDoS boundary. A published `/api/chat` WAF rule returns `429`
+  for per-IP traffic above 20 requests per minute after a completed Log-mode baseline review. The
   authenticated Postgres limiter allows 10 attempts per user per minute and caps its stored counter
   at 11 to avoid repeated write amplification.
 - OAuth access, refresh, and ID tokens are not retained. Database session tokens are stored as

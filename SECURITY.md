@@ -74,9 +74,8 @@ include live secrets, full conversation content, or personal data in the report.
 
 - Vercel's platform firewall is the primary L3/L4/L7 DDoS boundary. The application database
   limiter is an authenticated abuse and spend control, not a substitute for edge mitigation.
-- A published Vercel WAF rule observes `POST /api/chat` by source IP using a 20-request fixed
-  60-second window. It remains in Log mode for 24 hours before returning `429`, unless an active
-  attack requires immediate enforcement.
+- A published Vercel WAF rule enforces `429` for `POST /api/chat` by source IP after 20 requests in
+  a fixed 60-second window. The threshold was production-verified after a 24-hour Log-mode baseline.
 - During an incident, inspect Vercel Firewall traffic by path, IP, ASN, country, and JA4 fingerprint.
   Confirm whether function, Neon, and OpenRouter usage is increasing before changing application
   limits.

@@ -46,6 +46,12 @@ describeDatabase('AI quota cleanup with PostgreSQL', () => {
 		await database?.$client.end();
 	});
 
+	it('accepts the database timestamp representation when no clock override is supplied', async () => {
+		await expect(cleanupAiQuota(database as Database)).resolves.toEqual(
+			expect.objectContaining({ skipped: false })
+		);
+	});
+
 	it('enforces retention boundaries without touching user content or recent quota state', async () => {
 		const db = database as Database;
 		const now = new Date('2030-05-10T17:30:00.000Z');

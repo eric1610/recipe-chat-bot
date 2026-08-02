@@ -59,9 +59,13 @@ export async function cleanupAiQuota(
 
 		const clockResult = overrideNow
 			? { rows: [{ now: overrideNow }] }
-			: await tx.execute<{ now: Date }>(sql`select transaction_timestamp() as now`);
+			: await tx.execute<{ now: Date | string }>(sql`select transaction_timestamp() as now`);
 		const [clock] = clockResult.rows;
-		const cutoffs = getAiCleanupCutoffs(clock.now);
+		const databaseNow = clock.now instanceof Date ? clock.now : new Date(clock.now);
+		if (Number.isNaN(databaseNow.getTime())) {
+			throw new Error('Database returned an invalid cleanup timestamp.');
+		}
+		const cutoffs = getAiCleanupCutoffs(databaseNow);
 
 		// Delete outside-retention records first so operation counts remain disjoint.
 		const deletedAttempts = await tx

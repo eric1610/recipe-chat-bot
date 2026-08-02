@@ -105,8 +105,8 @@ observability.
 - [x] Implement an authenticated, idempotent daily cron job that removes expired quota-counter
   windows without deleting conversations, messages, preferences, or current-day reservations
 - [x] Define seven-day retention for AI-attempt and token metadata and prune older records
-- [ ] Configure the production-only cron secret and verify the first Vercel invocation
-- [ ] Run the gated cleanup concurrency suite against an isolated migrated Postgres test database
+- [x] Configure the production-only cron secret and verify the first Vercel invocation
+- [x] Run the gated cleanup concurrency suite against an isolated migrated Postgres test database
 - [ ] Test successful completion, every failure state, concurrent reservations, UTC-day rollover,
   repeated cleanup runs, and cleanup safety boundaries
 
@@ -146,7 +146,7 @@ observability.
   whenever stored assistant content is rendered
 - [x] Add per-user rate limiting, storage quotas, and abuse protection for authenticated persistence
 - [x] Cap application rate-limit counters and prune expired windows through the authenticated cron
-- [ ] Enforce and production-verify the `/api/chat` Vercel WAF rate limit after its 24-hour Log-mode
+- [x] Enforce and production-verify the `/api/chat` Vercel WAF rate limit after its 24-hour Log-mode
   observation period
 - [x] Enforce the current 10-successful-response per-user UTC-day AI cap with a server-configured
   exempt account
