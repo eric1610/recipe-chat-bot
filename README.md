@@ -116,6 +116,10 @@ commercial host before using the application commercially.
   values are treated as untrusted data and are not copied into conversation messages or logs.
 - Provider routing sets `data_collection: deny`, limiting selection to providers that declare they
   do not collect prompts for training. Free-model availability can therefore vary.
+- Complete recipe responses use consistent Markdown sections for servings, time, quantified
+  ingredients, and ordered instructions. Ingredient and instruction confidence reports are
+  color-coded using the application palette, include text labels for accessibility, and are clearly
+  identified as AI best-judgment estimates rather than independently tested or verified accuracy.
 - Each upstream attempt is counted conservatively against the shared UTC-day window. Standard users
   receive 10 successfully persisted responses per day, configured exempt accounts have no personal
   cap, and every account still shares the application-wide cap of 50 upstream attempts.

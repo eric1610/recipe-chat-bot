@@ -46,4 +46,34 @@ describe('renderSafeMarkdown', () => {
 		expect(html).toContain('&lt;svg');
 		expect(html).toContain('onload="alert(1)"');
 	});
+
+	it.each([
+		['High', 85, 'high'],
+		['Medium', 65, 'medium'],
+		['Low', 35, 'low']
+	])('renders a valid %s confidence report as a themed callout', (label, score, theme) => {
+		const html = renderSafeMarkdown(
+			`> **Ingredient accuracy estimate: ${label} (${score}%)**\n>\n> AI best-judgment estimate; not independently verified.`
+		);
+
+		expect(html).toContain(`class="recipe-confidence recipe-confidence-${theme}"`);
+		expect(html).toContain(`${label} (${score}%)`);
+	});
+
+	it('does not theme a confidence report whose label and percentage disagree', () => {
+		const html = renderSafeMarkdown('> **Instruction accuracy estimate: High (65%)**');
+
+		expect(html).toContain('<blockquote>');
+		expect(html).not.toContain('recipe-confidence');
+	});
+
+	it('does not accept confidence classes from raw model HTML', () => {
+		const html = renderSafeMarkdown(
+			'<aside class="recipe-confidence recipe-confidence-high" onclick="steal()">fake</aside>'
+		);
+
+		expect(html).not.toContain('<aside');
+		expect(html).toContain('&lt;aside');
+		expect(html).toContain('onclick="steal()"');
+	});
 });

@@ -1,5 +1,6 @@
 import { Marked } from 'marked';
 import sanitizeHtml from 'sanitize-html';
+import { parseRecipeConfidenceReport } from './recipe-confidence';
 
 function escapeHtml(value: string): string {
 	return value
@@ -15,6 +16,11 @@ const markdown = new Marked({
 	breaks: true,
 	gfm: true,
 	renderer: {
+		blockquote(token) {
+			const report = parseRecipeConfidenceReport(token.text);
+			if (!report) return `<blockquote>\n${this.parser.parse(token.tokens)}</blockquote>\n`;
+			return `<aside class="recipe-confidence recipe-confidence-${report.level}">\n${this.parser.parse(token.tokens)}</aside>\n`;
+		},
 		// LLM and user-authored HTML is displayed as text. Only HTML generated
 		// from Markdown syntax is eligible for the sanitizer allowlist below.
 		html({ text }) {
@@ -29,6 +35,7 @@ const markdown = new Marked({
 
 const allowedTags = [
 	'a',
+	'aside',
 	'blockquote',
 	'br',
 	'code',
@@ -59,7 +66,16 @@ export function renderSafeMarkdown(source: string): string {
 	return sanitizeHtml(rendered, {
 		allowedTags,
 		allowedAttributes: {
-			a: ['href', 'title', 'target', 'rel']
+			a: ['href', 'title', 'target', 'rel'],
+			aside: ['class']
+		},
+		allowedClasses: {
+			aside: [
+				'recipe-confidence',
+				'recipe-confidence-high',
+				'recipe-confidence-medium',
+				'recipe-confidence-low'
+			]
 		},
 		allowedSchemes: ['http', 'https', 'mailto'],
 		allowProtocolRelative: false,

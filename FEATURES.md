@@ -112,8 +112,8 @@ observability.
 
 ### Recipe quality and usefulness
 
-- [ ] Return recipes with a clear title, servings, estimated time, ingredients, quantities, and
-  ordered steps
+- [x] Return recipes with a clear title, servings, estimated time, ingredients, quantities, ordered
+  steps, and color-coded AI confidence estimates with non-verification disclosures
 - [ ] Support ingredient substitutions and cooking-method alternatives
 - [ ] Scale recipes for the requested household or serving count
 - [ ] Ask a concise follow-up question when essential cooking context is missing

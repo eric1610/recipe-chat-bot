@@ -10,3 +10,36 @@
 >
 	{@html rendered}
 </div>
+
+<style>
+	:global(.recipe-confidence) {
+		margin-block: 1rem;
+		border: 1px solid;
+		border-left-width: 0.35rem;
+		border-radius: var(--radius-container);
+		padding: 0.75rem 1rem;
+	}
+
+	:global(.recipe-confidence > :first-child) {
+		margin-top: 0;
+	}
+
+	:global(.recipe-confidence > :last-child) {
+		margin-bottom: 0;
+	}
+
+	:global(.recipe-confidence-high) {
+		border-color: var(--color-tertiary-500);
+		background: color-mix(in srgb, var(--color-tertiary-500) 16%, transparent);
+	}
+
+	:global(.recipe-confidence-medium) {
+		border-color: var(--color-recipe-yellow);
+		background: color-mix(in srgb, var(--color-recipe-yellow) 24%, transparent);
+	}
+
+	:global(.recipe-confidence-low) {
+		border-color: var(--color-recipe-red);
+		background: color-mix(in srgb, var(--color-recipe-red) 20%, transparent);
+	}
+</style>

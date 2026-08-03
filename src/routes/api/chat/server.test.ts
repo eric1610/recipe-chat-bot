@@ -105,7 +105,9 @@ describe('preference-aware chat generation', () => {
 		expect(mocks.loadUserPreferences).toHaveBeenCalledWith(database, 'user-1');
 		expect(mocks.streamText).toHaveBeenCalledWith(
 			expect.objectContaining({
-				instructions: expect.stringContaining('"allergies":["peanuts"]'),
+				instructions: expect.stringMatching(
+					/## Ingredients[\s\S]+Ingredient accuracy estimate:[\s\S]+## Instructions[\s\S]+Instruction accuracy estimate:[\s\S]+"allergies":\["peanuts"\]/
+				),
 				messages: [{ role: 'user', content: 'Make dinner' }]
 			})
 		);
