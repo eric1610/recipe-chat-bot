@@ -87,9 +87,16 @@ commercial host before using the application commercially.
   selected OpenRouter provider as bounded, server-owned instructions. Allergy entries are strict;
   other cooking preferences are defaults that an explicit request may override. Users should avoid
   storing unrelated medical or highly sensitive information in preference notes.
+- Priority allergens and aliases are seeded from Health Canada's Canadian list. Explicit first-person
+  chat statements such as “I'm allergic to peanuts” are saved to the signed-in account before that
+  response is generated; hypothetical, negated, and third-person mentions are not saved. Saved
+  allergies remain editable in Settings.
 - Message input and model output are normalized before storage. Assistant Markdown is converted to
   HTML only at display time, with raw HTML escaped, remote images disabled, and generated HTML
   restricted to an explicit tag, attribute, and URL-scheme allowlist.
+- Ingredients matching the priority-allergen catalog or the signed-in user's saved allergies are
+  rendered in bold with a `⚠️ Possible allergen` warning. This is a cautious text match, not a claim
+  that other ingredients are allergen-free; users must still verify labels and cross-contamination.
 - State-changing JSON and form requests require same-origin metadata and bounded bodies. Preference
   fields use strict names, types, counts, and lengths, while conversation identifiers are validated
   as UUIDs before account-scoped database operations.
@@ -98,8 +105,8 @@ commercial host before using the application commercially.
   from Neon after an ownership check.
 - Google and GitHub accounts with matching emails are not linked automatically.
 - Account deletion cascades through OAuth accounts, sessions, preferences, conversations, and
-  messages and identifiable AI-attempt records stored by this application. Anonymous aggregate
-  quota-window counts remain operational metrics without conversation content.
+  messages, saved allergies, and identifiable AI-attempt records stored by this application.
+  Anonymous aggregate quota-window counts remain operational metrics without conversation content.
 - AI-attempt metadata contains user, conversation, and message identifiers, status, model, timing,
   token totals, and sanitized error codes—but no prompt or response text. It is deleted seven days
   after attempt creation. Cleanup retains the current and immediately previous UTC quota windows;

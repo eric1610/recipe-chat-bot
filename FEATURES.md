@@ -119,8 +119,8 @@ observability.
 - [ ] Ask a concise follow-up question when essential cooking context is missing
 - [ ] Keep guidance practical for the user's selected cooking skill
 - [ ] Add food-safety guidance where relevant
-- [ ] Treat allergy preferences as important context while clearly stating that generated guidance
-  does not replace professional medical advice
+- [x] Persist Health Canada priority allergens and account-scoped allergy declarations, flag matching
+  recipe ingredients, and state that generated guidance does not replace professional medical advice
 - [ ] Avoid claiming that uncertain ingredient, nutrition, or safety information is verified
 
 ### Conversation experience

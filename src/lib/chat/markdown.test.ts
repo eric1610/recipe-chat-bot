@@ -76,4 +76,15 @@ describe('renderSafeMarkdown', () => {
 		expect(html).toContain('&lt;aside');
 		expect(html).toContain('onclick="steal()"');
 	});
+
+	it('renders a matching recipe ingredient as a bold possible-allergen warning', () => {
+		const html = renderSafeMarkdown(
+			'## Ingredients\n- 1 cup milk\n- 2 carrots\n\n## Instructions\n1. Add the milk.',
+			['milk']
+		);
+
+		expect(html).toContain('⚠️ Possible allergen: <strong>1 cup milk</strong>');
+		expect(html).toContain('<li>2 carrots</li>');
+		expect(html.match(/Possible allergen/g)).toHaveLength(1);
+	});
 });

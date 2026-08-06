@@ -1,5 +1,6 @@
 import { Marked } from 'marked';
 import sanitizeHtml from 'sanitize-html';
+import { annotateRecipeAllergens } from './allergens';
 import { parseRecipeConfidenceReport } from './recipe-confidence';
 
 function escapeHtml(value: string): string {
@@ -61,8 +62,8 @@ const allowedTags = [
 ];
 
 /** Render untrusted Markdown to HTML that is safe to pass to Svelte's {@html}. */
-export function renderSafeMarkdown(source: string): string {
-	const rendered = markdown.parse(source, { async: false });
+export function renderSafeMarkdown(source: string, allergenTerms: string[] = []): string {
+	const rendered = markdown.parse(annotateRecipeAllergens(source, allergenTerms), { async: false });
 	return sanitizeHtml(rendered, {
 		allowedTags,
 		allowedAttributes: {

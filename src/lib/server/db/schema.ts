@@ -89,7 +89,6 @@ export const userPreferences = pgTable('user_preferences', {
 		.primaryKey()
 		.references(() => users.id, { onDelete: 'cascade' }),
 	diets: jsonb('diets').$type<string[]>().notNull().default([]),
-	allergies: jsonb('allergies').$type<string[]>().notNull().default([]),
 	dislikedIngredients: jsonb('disliked_ingredients').$type<string[]>().notNull().default([]),
 	preferredCuisines: jsonb('preferred_cuisines').$type<string[]>().notNull().default([]),
 	cookingSkill: text('cooking_skill').$type<CookingSkill>(),
@@ -98,6 +97,38 @@ export const userPreferences = pgTable('user_preferences', {
 	createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 	updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
 });
+
+export const allergenCatalog = pgTable('allergen_catalog', {
+	slug: text('slug').primaryKey(),
+	name: text('name').notNull().unique(),
+	aliases: jsonb('aliases').$type<string[]>().notNull().default([]),
+	jurisdiction: text('jurisdiction').notNull(),
+	sourceUrl: text('source_url').notNull(),
+	createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
+});
+
+export type UserAllergySource = 'settings' | 'chat';
+
+export const userAllergies = pgTable(
+	'user_allergies',
+	{
+		userId: text('user_id')
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		normalizedName: text('normalized_name').notNull(),
+		displayName: text('display_name').notNull(),
+		catalogSlug: text('catalog_slug').references(() => allergenCatalog.slug, {
+			onDelete: 'set null'
+		}),
+		source: text('source').$type<UserAllergySource>().notNull(),
+		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+		updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
+	},
+	(allergy) => [
+		primaryKey({ columns: [allergy.userId, allergy.normalizedName] }),
+		index('user_allergies_catalog_idx').on(allergy.catalogSlug)
+	]
+);
 
 export const conversations = pgTable(
 	'conversations',

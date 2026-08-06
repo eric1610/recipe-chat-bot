@@ -6,6 +6,7 @@ import {
 	conversations,
 	messages,
 	securityRateLimits,
+	userAllergies,
 	userPreferences,
 	users
 } from '$lib/server/db/schema';
@@ -74,6 +75,13 @@ describeDatabase('AI quota cleanup with PostgreSQL', () => {
 		try {
 			await db.insert(users).values({ id: userId, email: `${userId}@example.test` });
 			await db.insert(userPreferences).values({ userId });
+			await db.insert(userAllergies).values({
+				userId,
+				normalizedName: 'peanuts',
+				displayName: 'Peanuts',
+				catalogSlug: 'peanuts',
+				source: 'settings'
+			});
 			await db.insert(conversations).values({
 				id: conversationId,
 				userId,
@@ -233,7 +241,7 @@ describeDatabase('AI quota cleanup with PostgreSQL', () => {
 				totalTokens: 42
 			});
 
-			const [[conversationCount], [messageCount], [preferenceCount]] = await Promise.all([
+			const [[conversationCount], [messageCount], [preferenceCount], [allergyCount]] = await Promise.all([
 				db
 					.select({ count: count() })
 					.from(conversations)
@@ -245,13 +253,18 @@ describeDatabase('AI quota cleanup with PostgreSQL', () => {
 				db
 					.select({ count: count() })
 					.from(userPreferences)
-					.where(eq(userPreferences.userId, userId))
+					.where(eq(userPreferences.userId, userId)),
+				db
+					.select({ count: count() })
+					.from(userAllergies)
+					.where(eq(userAllergies.userId, userId))
 			]);
 			expect({
 				conversations: conversationCount.count,
 				messages: messageCount.count,
-				preferences: preferenceCount.count
-			}).toEqual({ conversations: 1, messages: 1, preferences: 1 });
+				preferences: preferenceCount.count,
+				allergies: allergyCount.count
+			}).toEqual({ conversations: 1, messages: 1, preferences: 1, allergies: 1 });
 
 			const windows = await db
 				.select({

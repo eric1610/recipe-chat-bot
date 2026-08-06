@@ -9,6 +9,7 @@
 			session: Session;
 			conversations: ConversationSummary[];
 			aiUsage: AiUsageSnapshot;
+			allergenTerms: string[];
 			currentConversation: StoredConversation;
 			messages: StoredMessage[];
 		};

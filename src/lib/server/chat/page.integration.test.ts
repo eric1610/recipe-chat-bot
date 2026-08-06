@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import { createNeonDatabase, type Database } from '$lib/server/db';
-import { conversations, messages, userPreferences, users } from '$lib/server/db/schema';
+import { conversations, messages, userAllergies, userPreferences, users } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { loadUserPreferences } from '$lib/server/ai/preferences';
 import { loadChatData } from './page';
@@ -114,12 +114,28 @@ describeDatabase('backend-restored conversation pages', () => {
 				{ id: otherId, email: `${otherId}@example.test` }
 			]);
 			await db.insert(userPreferences).values([
-				{ userId: ownerId, allergies: ['peanuts'], notes: 'Owner profile' },
-				{ userId: otherId, allergies: ['shellfish'], notes: 'Other profile' }
+				{ userId: ownerId, notes: 'Owner profile' },
+				{ userId: otherId, notes: 'Other profile' }
+			]);
+			await db.insert(userAllergies).values([
+				{
+					userId: ownerId,
+					normalizedName: 'peanuts',
+					displayName: 'Peanuts',
+					catalogSlug: 'peanuts',
+					source: 'settings'
+				},
+				{
+					userId: otherId,
+					normalizedName: 'crustaceans and molluscs',
+					displayName: 'Crustaceans and molluscs',
+					catalogSlug: 'crustaceans-molluscs',
+					source: 'settings'
+				}
 			]);
 
 			await expect(loadUserPreferences(db, ownerId)).resolves.toMatchObject({
-				allergies: ['peanuts'],
+				allergies: ['Peanuts'],
 				notes: 'Owner profile'
 			});
 			await expect(loadUserPreferences(db, 'missing-user')).resolves.toBeNull();

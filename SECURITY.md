@@ -52,8 +52,12 @@ include live secrets, full conversation content, or personal data in the report.
   bounded body before parsing. Preference fields reject unknown, duplicate, file, oversized, and
   invalid values; conversation mutations require canonical UUIDs before database access.
 - Account cooking preferences are loaded using the authenticated user ID and included in provider
-  prompts as bounded, normalized, untrusted data. They are not returned to the chat client, copied
-  into message history, or recorded in AI-attempt metadata.
+  prompts as bounded, normalized, untrusted data. Allergy warning terms are returned only to the
+  authenticated chat page for deterministic ingredient highlighting; other preferences are not
+  returned to chat, copied into message history, or recorded in AI-attempt metadata.
+- Health Canada priority allergens are stored as shared reference data. User-declared allergies are
+  stored in account-scoped rows with cascading deletion; only explicit first-person declarations are
+  inferred from chat, and saved values remain editable through Settings.
 - Svelte escapes ordinary stored text. The only raw-HTML rendering boundary is assistant Markdown,
   where authored HTML is escaped and generated HTML is restricted to an explicit tag, attribute,
   and URL-scheme allowlist with remote images disabled.

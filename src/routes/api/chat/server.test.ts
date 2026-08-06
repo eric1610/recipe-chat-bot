@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
 	loadUserPreferences: vi.fn(),
 	markAiAttemptFailed: vi.fn(),
 	persistUserMessageForGeneration: vi.fn(),
+	persistDeclaredAllergies: vi.fn(),
 	reserveAiQuota: vi.fn(),
 	streamText: vi.fn()
 }));
@@ -20,6 +21,9 @@ vi.mock('ai', async (importOriginal) => ({
 	streamText: mocks.streamText
 }));
 vi.mock('$lib/server/db', () => ({ getDatabase: () => database }));
+vi.mock('$lib/server/allergens', () => ({
+	persistDeclaredAllergies: mocks.persistDeclaredAllergies
+}));
 vi.mock('$lib/server/ai/persistence', () => ({
 	getRecentConversationContext: mocks.getRecentConversationContext,
 	persistCompletedAssistant: vi.fn(),
@@ -114,6 +118,11 @@ describe('preference-aware chat generation', () => {
 		expect(mocks.persistUserMessageForGeneration).toHaveBeenCalledWith(
 			database,
 			expect.objectContaining({ userId: 'user-1', content: 'Make dinner' })
+		);
+		expect(mocks.persistDeclaredAllergies).toHaveBeenCalledWith(
+			database,
+			'user-1',
+			'Make dinner'
 		);
 		expect(await response.text()).not.toContain('peanuts');
 	});

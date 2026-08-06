@@ -33,6 +33,7 @@ describe('AI cooking preference instructions', () => {
 		});
 
 		expect(instructions).toContain('Allergies are strict constraints');
+		expect(instructions).toContain('does not replace advice from a qualified medical professional');
 		expect(instructions).toContain('defaults that an explicit chat request may override');
 		expect(instructions).toContain('"allergies":["peanuts"]');
 		expect(instructions).toContain('"diets":["vegetarian"]');

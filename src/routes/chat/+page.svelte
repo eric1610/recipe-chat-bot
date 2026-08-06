@@ -18,6 +18,7 @@
 			session: Session;
 			conversations: ConversationSummary[];
 			aiUsage: AiUsageSnapshot;
+			allergenTerms: string[];
 			currentConversation: StoredConversation | null;
 			messages: StoredMessage[];
 		};
@@ -339,7 +340,7 @@
 							<article class={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
 								<div class={`max-w-[85%] rounded-container px-4 py-3 text-sm leading-6 sm:max-w-[75%] ${message.role === 'user' ? 'bg-primary-500 text-primary-contrast-500' : 'bg-surface-100-900 text-surface-950-50 ring-1 ring-surface-300-700'}`}>
 									{#if message.role === 'assistant'}
-										<MarkdownMessage source={messageText(message)} />
+										<MarkdownMessage source={messageText(message)} allergenTerms={data.allergenTerms} />
 									{:else}
 										<p class="whitespace-pre-wrap">{messageText(message)}</p>
 									{/if}

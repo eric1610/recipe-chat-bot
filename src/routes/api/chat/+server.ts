@@ -2,6 +2,7 @@ import { env } from '$env/dynamic/private';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { APICallError, streamText, type LanguageModelUsage, type ModelMessage } from 'ai';
 import { getDatabase } from '$lib/server/db';
+import { persistDeclaredAllergies } from '$lib/server/allergens';
 import { users } from '$lib/server/db/schema';
 import { classifyProviderFailure } from '$lib/server/ai/errors';
 import {
@@ -101,6 +102,7 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 					content: payload.message.content,
 					now: new Date()
 				});
+				await persistDeclaredAllergies(transaction, session.user.id, payload.message.content);
 				context = await getRecentConversationContext(
 					transaction,
 					session.user.id,

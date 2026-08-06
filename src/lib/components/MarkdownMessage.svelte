@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { renderSafeMarkdown } from '$lib/chat/markdown';
 
-	let { source }: { source: string } = $props();
-	let rendered = $derived(renderSafeMarkdown(source));
+	let { source, allergenTerms = [] }: { source: string; allergenTerms?: string[] } = $props();
+	let rendered = $derived(renderSafeMarkdown(source, allergenTerms));
 </script>
 
 <div

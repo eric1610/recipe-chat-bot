@@ -1,6 +1,7 @@
 import { env } from '$env/dynamic/private';
 import { error, fail, redirect } from '@sveltejs/kit';
 import { getAiUsage, isQuotaExempt } from '$lib/server/ai/quota';
+import { loadAllergenWarningTerms } from '$lib/server/allergens';
 import { getDatabase, type Database } from '$lib/server/db';
 import { conversations, messages, users } from '$lib/server/db/schema';
 import { isUuid, readSameOriginFormData } from '$lib/server/security/request';
@@ -11,7 +12,7 @@ export async function loadChatData(
 	conversationId?: string,
 	database: Database = getDatabase()
 ) {
-	const [conversationRecords, [user]] = await Promise.all([
+	const [conversationRecords, [user], allergenTerms] = await Promise.all([
 		database
 			.select({
 				id: conversations.id,
@@ -22,7 +23,8 @@ export async function loadChatData(
 			.from(conversations)
 			.where(eq(conversations.userId, userId))
 			.orderBy(desc(conversations.updatedAt)),
-		database.select({ email: users.email }).from(users).where(eq(users.id, userId)).limit(1)
+		database.select({ email: users.email }).from(users).where(eq(users.id, userId)).limit(1),
+		loadAllergenWarningTerms(database, userId)
 	]);
 
 	let currentConversation = null;
@@ -71,6 +73,7 @@ export async function loadChatData(
 			createdAt: conversation.createdAt.toISOString(),
 			updatedAt: conversation.updatedAt.toISOString()
 		})),
+		allergenTerms,
 		currentConversation,
 		messages: currentMessages
 	};

@@ -1,4 +1,5 @@
 import { emptyPreferences } from '$lib/chat/types';
+import { loadUserAllergies, replaceUserAllergies } from '$lib/server/allergens';
 import { getDatabase } from '$lib/server/db';
 import { userPreferences, users } from '$lib/server/db/schema';
 import { parsePreferences } from '$lib/server/preferences';
@@ -15,24 +16,28 @@ async function requireUserId(locals: App.Locals): Promise<string> {
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const userId = await requireUserId(locals);
-	const [record] = await getDatabase()
-		.select()
-		.from(userPreferences)
-		.where(eq(userPreferences.userId, userId))
-		.limit(1);
+	const database = getDatabase();
+	const [[record], allergies] = await Promise.all([
+		database
+			.select()
+			.from(userPreferences)
+			.where(eq(userPreferences.userId, userId))
+			.limit(1),
+		loadUserAllergies(database, userId)
+	]);
 
 	return {
 		preferences: record
 			? {
 				diets: record.diets,
-				allergies: record.allergies,
+				allergies,
 				dislikedIngredients: record.dislikedIngredients,
 				preferredCuisines: record.preferredCuisines,
 				cookingSkill: record.cookingSkill,
 				householdSize: record.householdSize,
 				notes: record.notes
 			}
-			: emptyPreferences
+			: { ...emptyPreferences, allergies }
 	};
 };
 
@@ -47,14 +52,18 @@ export const actions: Actions = {
 			return fail(400, { preferenceError: cause instanceof Error ? cause.message : 'Preferences are invalid.' });
 		}
 
-		await getDatabase()
-			.insert(userPreferences)
-			.values({ userId, ...preferences })
-			.onConflictDoUpdate({
-				target: userPreferences.userId,
-				set: { ...preferences, updatedAt: new Date() }
-			});
-
+		const { allergies, ...preferenceRecord } = preferences;
+		await getDatabase().transaction(async (transaction) => {
+			const database = transaction as unknown as ReturnType<typeof getDatabase>;
+			await database
+				.insert(userPreferences)
+				.values({ userId, ...preferenceRecord })
+				.onConflictDoUpdate({
+					target: userPreferences.userId,
+					set: { ...preferenceRecord, updatedAt: new Date() }
+				});
+			await replaceUserAllergies(database, userId, allergies);
+		});
 		return { preferencesSaved: true };
 	},
 
