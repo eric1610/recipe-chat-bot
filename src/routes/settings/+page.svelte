@@ -51,6 +51,7 @@
 					<option value="intermediate">Intermediate</option>
 					<option value="advanced">Advanced</option>
 				</select>
+				<span class="text-xs font-normal text-surface-600-400">Beginner explains techniques and cues, Intermediate stays practical, and Advanced uses concise technical detail. A request can override this for one response.</span>
 			</label>
 			<label class="grid gap-2 font-bold text-surface-950-50">Household size
 				<input class="input" type="number" name="householdSize" min="1" max="30" value={data.preferences.householdSize ?? ''} />

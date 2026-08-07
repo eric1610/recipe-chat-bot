@@ -109,12 +109,18 @@ describe('preference-aware chat generation', () => {
 		expect(mocks.loadUserPreferences).toHaveBeenCalledWith(database, 'user-1');
 		expect(mocks.streamText).toHaveBeenCalledWith(
 			expect.objectContaining({
+				instructions: expect.stringContaining('Saved guidance level: Beginner')
+			})
+		);
+		expect(mocks.streamText).toHaveBeenCalledWith(
+			expect.objectContaining({
 				instructions: expect.stringMatching(
 					/## Ingredients[\s\S]+Ingredient accuracy estimate:[\s\S]+## Instructions[\s\S]+Instruction accuracy estimate:[\s\S]+"allergies":\["peanuts"\]/
 				),
 				messages: [{ role: 'user', content: 'Make dinner' }]
 			})
 		);
+		expect(mocks.streamText.mock.calls[0][0].instructions).not.toContain('"cookingSkill"');
 		expect(mocks.persistUserMessageForGeneration).toHaveBeenCalledWith(
 			database,
 			expect.objectContaining({ userId: 'user-1', content: 'Make dinner' })

@@ -38,7 +38,7 @@ describe('AI cooking preference instructions', () => {
 		expect(instructions).toContain('"allergies":["peanuts"]');
 		expect(instructions).toContain('"diets":["vegetarian"]');
 		expect(instructions).toContain('"householdSize":4');
-		expect(instructions).toContain('"cookingSkill":"beginner"');
+		expect(instructions).not.toContain('cookingSkill');
 		expect(instructions).toContain('"notes":"Weeknight meals under 30 minutes"');
 	});
 
@@ -69,7 +69,7 @@ describe('AI cooking preference instructions', () => {
 		expect(instructions).toContain('"allergies"');
 		expect(instructions).not.toContain('"diets"');
 		expect(instructions).toContain('"householdSize":8');
-		expect(instructions).toContain('"cookingSkill":"advanced"');
+		expect(instructions).not.toContain('cookingSkill');
 		expect(instructions).not.toContain('"notes"');
 	});
 

@@ -87,6 +87,10 @@ commercial host before using the application commercially.
   selected OpenRouter provider as bounded, server-owned instructions. Allergy entries are strict;
   other cooking preferences are defaults that an explicit request may override. Users should avoid
   storing unrelated medical or highly sensitive information in preference notes.
+- Cooking skill uses a separate server-owned policy: Beginner explains techniques and sensory cues,
+  Intermediate uses practical standard terminology, Advanced favors concise technical precision,
+  and an unspecified preference uses Standard guidance. An explicit request can override the level
+  for one response without changing Settings; complete recipes display the applied guidance level.
 - Priority allergens and aliases are seeded from Health Canada's Canadian list. Explicit first-person
   chat statements such as “I'm allergic to peanuts” are saved to the signed-in account before that
   response is generated; hypothetical, negated, and third-person mentions are not saved. Saved

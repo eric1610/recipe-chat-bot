@@ -117,7 +117,8 @@ observability.
 - [ ] Support ingredient substitutions and cooking-method alternatives
 - [ ] Scale recipes for the requested household or serving count
 - [ ] Ask a concise follow-up question when essential cooking context is missing
-- [ ] Keep guidance practical for the user's selected cooking skill
+- [x] Adapt recipes and cooking guidance for Beginner, Intermediate, Advanced, or Standard skill
+  levels while preserving safety and allowing per-response overrides
 - [ ] Add food-safety guidance where relevant
 - [x] Persist Health Canada priority allergens and account-scoped allergy declarations, flag matching
   recipe ingredients, and state that generated guidance does not replace professional medical advice

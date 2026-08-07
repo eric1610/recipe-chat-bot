@@ -8,6 +8,7 @@ const workingRecipeExamples = [
 		markdown: `# Tomato Pasta
 **Servings:** 2
 **Estimated time:** 25 minutes
+**Guidance level:** Intermediate
 
 ## Ingredients
 - 200 g dried pasta
@@ -33,6 +34,7 @@ const workingRecipeExamples = [
 		markdown: `# Sheet-Pan Chicken
 **Servings:** 4
 **Estimated time:** 45 minutes
+**Guidance level:** Standard
 
 ## Ingredients
 - 700 g boneless chicken thighs
@@ -58,6 +60,7 @@ const workingRecipeExamples = [
 		markdown: `# Unverified Chicken Method
 **Servings:** 4
 **Estimated time:** About 40 minutes
+**Guidance level:** Beginner
 
 ## Ingredients
 - 4 chicken pieces
@@ -83,6 +86,7 @@ describe('structured recipe instructions', () => {
 			'# {descriptive recipe title}',
 			'**Servings:**',
 			'**Estimated time:**',
+			'**Guidance level:**',
 			'## Ingredients',
 			'Ingredient accuracy estimate:',
 			'## Instructions',

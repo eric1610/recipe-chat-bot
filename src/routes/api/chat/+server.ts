@@ -5,6 +5,7 @@ import { getDatabase } from '$lib/server/db';
 import { persistDeclaredAllergies } from '$lib/server/allergens';
 import { users } from '$lib/server/db/schema';
 import { classifyProviderFailure } from '$lib/server/ai/errors';
+import { buildCookingSkillInstructions } from '$lib/server/ai/cooking-skill';
 import {
 	getRecentConversationContext,
 	persistCompletedAssistant,
@@ -83,7 +84,7 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 	});
 	const model = openrouter(OPENROUTER_MODEL);
 	let context: ModelMessage[] = [];
-	let instructions = recipeInstructions;
+	let instructions = `${recipeInstructions}${buildCookingSkillInstructions(null)}`;
 	let reservation;
 	try {
 		reservation = await reserveAiQuota(
@@ -108,9 +109,10 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 					session.user.id,
 					payload.conversationId
 				);
-				instructions = `${recipeInstructions}${buildPreferenceInstructions(
-					await loadUserPreferences(transaction, session.user.id)
-				)}`;
+				const preferences = await loadUserPreferences(transaction, session.user.id);
+				instructions = `${recipeInstructions}${buildCookingSkillInstructions(
+					preferences?.cookingSkill
+				)}${buildPreferenceInstructions(preferences)}`;
 			}
 		);
 	} catch {

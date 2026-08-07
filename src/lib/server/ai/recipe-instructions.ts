@@ -7,6 +7,7 @@ than only the changed fragments. Use this Markdown structure in this exact order
 # {descriptive recipe title}
 **Servings:** {numeric count or range}
 **Estimated time:** {practical duration}
+**Guidance level:** {Beginner|Intermediate|Advanced|Standard, as required by the cooking guidance policy}
 
 ## Ingredients
 - {quantity and unit, or "to taste"/"as needed" when an exact measure is not appropriate} {ingredient}
