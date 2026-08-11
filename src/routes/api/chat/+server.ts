@@ -25,6 +25,11 @@ import {
 import { parseChatGenerationRequest } from '$lib/server/ai/request';
 import { consumeRateLimit } from '$lib/server/security/limits';
 import { readSameOriginJson } from '$lib/server/security/request';
+import {
+	RecipeSearchAccessError,
+	RecipeSearchExpiredError,
+	resolveRecipeSelection
+} from '$lib/server/recipes/persistence';
 import { eq } from 'drizzle-orm';
 import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
@@ -76,6 +81,25 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 		.limit(1);
 	if (!user) error(401, 'Your account session is no longer valid.');
 
+	let messageContent = 'content' in payload.message ? payload.message.content : '';
+	let sourceInstructions = '';
+	if ('recipeSelection' in payload) {
+		try {
+			const selection = await resolveRecipeSelection(database, {
+				userId: session.user.id,
+				conversationId: payload.conversationId,
+				searchId: payload.recipeSelection.searchId,
+				candidateId: payload.recipeSelection.candidateId
+			});
+			messageContent = selection.content;
+			sourceInstructions = selection.instructions;
+		} catch (cause) {
+			if (cause instanceof RecipeSearchExpiredError) error(409, cause.message);
+			if (cause instanceof RecipeSearchAccessError) error(404, 'Recipe source not found.');
+			throw cause;
+		}
+	}
+
 	const openrouter = createOpenRouter({
 		apiKey: env.OPENROUTER_API_KEY,
 		compatibility: 'strict',
@@ -84,7 +108,7 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 	});
 	const model = openrouter(OPENROUTER_MODEL);
 	let context: ModelMessage[] = [];
-	let instructions = `${recipeInstructions}${buildCookingSkillInstructions(null)}`;
+	let instructions = `${recipeInstructions}${buildCookingSkillInstructions(null)}${sourceInstructions}`;
 	let reservation;
 	try {
 		reservation = await reserveAiQuota(
@@ -100,10 +124,12 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 					userId: session.user.id,
 					conversationId: payload.conversationId,
 					messageId: payload.message.id,
-					content: payload.message.content,
+					content: messageContent,
 					now: new Date()
 				});
-				await persistDeclaredAllergies(transaction, session.user.id, payload.message.content);
+				if (!('recipeSelection' in payload)) {
+					await persistDeclaredAllergies(transaction, session.user.id, messageContent);
+				}
 				context = await getRecentConversationContext(
 					transaction,
 					session.user.id,
@@ -112,7 +138,7 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 				const preferences = await loadUserPreferences(transaction, session.user.id);
 				instructions = `${recipeInstructions}${buildCookingSkillInstructions(
 					preferences?.cookingSkill
-				)}${buildPreferenceInstructions(preferences)}`;
+				)}${buildPreferenceInstructions(preferences)}${sourceInstructions}`;
 			}
 		);
 	} catch {

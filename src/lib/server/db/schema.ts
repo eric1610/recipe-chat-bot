@@ -11,6 +11,7 @@ import {
 	uuid
 } from 'drizzle-orm/pg-core';
 import type { CookingSkill, MessageRole } from '$lib/chat/types';
+import type { RecipeFacts, StoredRecipeCandidate } from '$lib/recipes/types';
 
 export const users = pgTable('user', {
 	id: text('id')
@@ -163,6 +164,82 @@ export const messages = pgTable(
 		uniqueIndex('messages_conversation_position_idx').on(message.conversationId, message.position)
 	]
 );
+
+export type RecipeSourceStatus = 'approved' | 'blocked';
+
+export const recipeSourcePolicies = pgTable('recipe_source_policies', {
+	hostname: text('hostname').primaryKey(),
+	status: text('status').$type<RecipeSourceStatus>().notNull(),
+	allowedPathPrefixes: jsonb('allowed_path_prefixes').$type<string[]>().notNull().default([]),
+	termsUrl: text('terms_url').notNull(),
+	attributionName: text('attribution_name').notNull(),
+	parser: text('parser').$type<'schema_recipe'>().notNull().default('schema_recipe'),
+	reviewedAt: timestamp('reviewed_at', { withTimezone: true }).notNull(),
+	notes: text('notes').notNull().default(''),
+	createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+	updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
+});
+
+export const recipeSearches = pgTable(
+	'recipe_searches',
+	{
+		id: uuid('id').primaryKey(),
+		userId: text('user_id')
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		conversationId: uuid('conversation_id')
+			.notNull()
+			.references(() => conversations.id, { onDelete: 'cascade' }),
+		userMessageId: uuid('user_message_id')
+			.notNull()
+			.references(() => messages.id, { onDelete: 'cascade' }),
+		assistantMessageId: uuid('assistant_message_id')
+			.notNull()
+			.references(() => messages.id, { onDelete: 'cascade' }),
+		queryKey: text('query_key').notNull(),
+		queryText: text('query_text').notNull(),
+		candidates: jsonb('candidates').$type<StoredRecipeCandidate[]>().notNull().default([]),
+		status: text('status').$type<'pending' | 'selected' | 'expired'>().notNull().default('pending'),
+		selectedCandidateId: uuid('selected_candidate_id'),
+		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+		expiresAt: timestamp('expires_at', { withTimezone: true }).notNull()
+	},
+	(search) => [
+		index('recipe_searches_user_conversation_idx').on(search.userId, search.conversationId),
+		index('recipe_searches_expires_idx').on(search.expiresAt)
+	]
+);
+
+export const recipeCache = pgTable(
+	'recipe_cache',
+	{
+		sourceKey: text('source_key').primaryKey(),
+		canonicalUrl: text('canonical_url').notNull().unique(),
+		hostname: text('hostname')
+			.notNull()
+			.references(() => recipeSourcePolicies.hostname, { onDelete: 'cascade' }),
+		queryKeys: jsonb('query_keys').$type<string[]>().notNull().default([]),
+		sourceTitle: text('source_title').notNull(),
+		normalizedFacts: jsonb('normalized_facts').$type<RecipeFacts>(),
+		selectionCount: integer('selection_count').notNull().default(0),
+		selectionWindowStart: timestamp('selection_window_start', { withTimezone: true }).notNull(),
+		lastSelectedAt: timestamp('last_selected_at', { withTimezone: true }).notNull(),
+		cachedAt: timestamp('cached_at', { withTimezone: true }),
+		refreshAfter: timestamp('refresh_after', { withTimezone: true }),
+		updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
+	},
+	(cache) => [
+		index('recipe_cache_hostname_idx').on(cache.hostname),
+		index('recipe_cache_refresh_idx').on(cache.refreshAfter),
+		index('recipe_cache_last_selected_idx').on(cache.lastSelectedAt)
+	]
+);
+
+export const recipeSearchQuotaWindows = pgTable('recipe_search_quota_windows', {
+	windowStart: timestamp('window_start', { withTimezone: true }).primaryKey(),
+	searchCount: integer('search_count').notNull().default(0),
+	updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
+});
 
 export const securityRateLimits = pgTable(
 	'security_rate_limits',

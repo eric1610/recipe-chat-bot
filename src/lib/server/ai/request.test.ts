@@ -17,6 +17,17 @@ describe('AI chat requests', () => {
 		});
 	});
 
+	it('accepts a source selection without trusting client source text', () => {
+		expect(parseChatGenerationRequest({
+			conversationId: '018f47a2-2d8e-7a15-8f7e-0123456789ab',
+			message: { id: '018f47a2-2d8e-7a15-8f7e-1123456789ab' },
+			recipeSelection: {
+				searchId: '018f47a2-2d8e-7a15-8f7e-2123456789ab',
+				candidateId: '018f47a2-2d8e-7a15-8f7e-3123456789ab'
+			}
+		})).toMatchObject({ recipeSelection: { candidateId: '018f47a2-2d8e-7a15-8f7e-3123456789ab' } });
+	});
+
 	it('rejects client-supplied history and oversized messages', () => {
 		expect(() =>
 			parseChatGenerationRequest({

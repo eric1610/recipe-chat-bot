@@ -19,6 +19,7 @@ export interface StoredMessage {
 	content: string;
 	position: number;
 	createdAt: string;
+	recipeSearch?: import('$lib/recipes/types').PendingRecipeSearchView;
 }
 
 export interface UserPreferences {

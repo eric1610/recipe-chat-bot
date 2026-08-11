@@ -1,6 +1,7 @@
 import { env } from '$env/dynamic/private';
 import { cleanupAiQuota, type AiCleanupResult } from '$lib/server/ai/cleanup';
 import { getDatabase, type Database } from '$lib/server/db';
+import { cleanupRecipeSearchData } from '$lib/server/recipes/persistence';
 import {
 	isCronAuthorizationValid,
 	isCronSecretConfigured
@@ -44,6 +45,9 @@ export function _createCronCleanupHandler(dependencies: CronCleanupDependencies)
 export const GET: RequestHandler = _createCronCleanupHandler({
 	getSecret: () => env.CRON_SECRET,
 	getDatabase,
-	cleanup: cleanupAiQuota,
-	logFailure: () => console.error('AI quota cleanup failed.')
+	cleanup: async (database) => ({
+		...(await cleanupAiQuota(database)),
+		...(await cleanupRecipeSearchData(database))
+	}),
+	logFailure: () => console.error('Scheduled data cleanup failed.')
 });

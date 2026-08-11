@@ -8,7 +8,7 @@ const messageContentSchema = z
 	.transform(sanitizeMessageContent)
 	.pipe(z.string().min(1).max(8_000));
 
-const chatRequestSchema = z
+const standardChatRequestSchema = z
 	.object({
 		conversationId: z.string().uuid(),
 		message: z
@@ -20,13 +20,29 @@ const chatRequestSchema = z
 	})
 	.strict();
 
-export interface ChatGenerationRequest {
+const recipeSelectionRequestSchema = z
+	.object({
+		conversationId: z.string().uuid(),
+		message: z.object({ id: z.string().uuid() }).strict(),
+		recipeSelection: z
+			.object({ searchId: z.string().uuid(), candidateId: z.string().uuid() })
+			.strict()
+	})
+	.strict();
+
+const chatRequestSchema = z.union([standardChatRequestSchema, recipeSelectionRequestSchema]);
+
+export type ChatGenerationRequest = {
 	conversationId: string;
 	message: {
 		id: string;
 		content: string;
 	};
-}
+} | {
+	conversationId: string;
+	message: { id: string };
+	recipeSelection: { searchId: string; candidateId: string };
+};
 
 export interface ContextMessage {
 	role: 'user' | 'assistant' | 'system';

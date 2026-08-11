@@ -1,14 +1,17 @@
 <script lang="ts">
 	import type { Session } from '@auth/sveltekit';
 	import type { ConversationSummary, StoredConversation, StoredMessage } from '$lib/chat/types';
+	import type { PendingRecipeSearchView, RecipeCandidateView } from '$lib/recipes/types';
 	import type { AiUsageSnapshot } from '$lib/chat/usage';
 	import { shouldSubmitComposer } from '$lib/chat/composer';
 	import { base } from '$app/paths';
 	import { goto, invalidateAll } from '$app/navigation';
 	import { Chat } from '@ai-sdk/svelte';
 	import { DefaultChatTransport, type UIMessage } from 'ai';
+	import { tick } from 'svelte';
 	import ChatHistory from '$lib/components/ChatHistory.svelte';
 	import MarkdownMessage from '$lib/components/MarkdownMessage.svelte';
+	import RecipeSourceCards from '$lib/components/RecipeSourceCards.svelte';
 	import ThemeSwitch from '$lib/components/ThemeSwitch.svelte';
 	import { SignOut } from '@auth/sveltekit/components';
 	import { Dialog } from '@skeletonlabs/skeleton-svelte';
@@ -24,7 +27,7 @@
 		};
 		form?: { deleteError?: string } | null;
 	} = $props();
-	type RecipeUiMessage = UIMessage<{ position?: number; createdAt?: string }>;
+	type RecipeUiMessage = UIMessage<{ position?: number; createdAt?: string; recipeSearch?: PendingRecipeSearchView }>;
 	let draftConversation = $state<StoredConversation | null>(null);
 	let currentConversation = $derived(draftConversation ?? data.currentConversation);
 	let draft = $state('');
@@ -34,11 +37,26 @@
 	let aiUsage = $derived(refreshedUsage ?? data.aiUsage);
 	let persistedConversationId = $state<string | null>(null);
 	let generationSettled = false;
+	let sourceSearchPending = $state(false);
 	let loadedConversationId = $derived(data.currentConversation?.id);
 	let composer: HTMLTextAreaElement;
 
 	function initialMessages(): RecipeUiMessage[] {
 		return data.messages.map(toUiMessage);
+	}
+
+	function syncRecipeSearchMetadata() {
+		const searches = new Map(
+			data.messages
+				.filter((message) => message.recipeSearch)
+				.map((message) => [message.id, message.recipeSearch!])
+		);
+		chat.messages = chat.messages.map((message) => {
+			const recipeSearch = searches.get(message.id);
+			return recipeSearch
+				? { ...message, metadata: { ...message.metadata, recipeSearch } }
+				: message;
+		});
 	}
 
 	const chat = new Chat<RecipeUiMessage>({
@@ -52,6 +70,15 @@
 			},
 			prepareSendMessagesRequest: ({ messages, body }) => {
 				const message = messages.findLast((candidate) => candidate.role === 'user');
+				if (body?.recipeSelection) {
+					return {
+						body: {
+							conversationId: body.conversationId,
+							message: { id: message?.id },
+							recipeSelection: body.recipeSelection
+						}
+					};
+				}
 				const content = message?.parts
 					.filter((part) => part.type === 'text')
 					.map((part) => part.text)
@@ -76,7 +103,7 @@
 		}
 	});
 
-	let sending = $derived(chat.status === 'submitted' || chat.status === 'streaming');
+	let sending = $derived(sourceSearchPending || chat.status === 'submitted' || chat.status === 'streaming');
 	let quotaExhausted = $derived(
 		aiUsage.user.state === 'exhausted' || aiUsage.shared.state === 'exhausted'
 	);
@@ -91,7 +118,7 @@
 			id: message.id,
 			role: message.role,
 			parts: [{ type: 'text', text: message.content }],
-			metadata: { position: message.position, createdAt: message.createdAt }
+			metadata: { position: message.position, createdAt: message.createdAt, recipeSearch: message.recipeSearch }
 		};
 	}
 
@@ -139,6 +166,8 @@
 		}
 		await refreshUsage();
 		await invalidateAll();
+		await tick();
+		syncRecipeSearchMetadata();
 	}
 
 	async function sendMessage(event: SubmitEvent) {
@@ -153,19 +182,78 @@
 		const conversation = localConversation(content);
 		draftConversation = conversation;
 		draft = '';
+		const userMessage: RecipeUiMessage = {
+			id: crypto.randomUUID(),
+			role: 'user',
+			parts: [{ type: 'text', text: content }],
+			metadata: { createdAt: new Date().toISOString() }
+		};
 		try {
+			sourceSearchPending = true;
+			const searchResponse = await fetch(`${base}/api/recipes/search`, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({
+					conversationId: conversation.id,
+					message: { id: userMessage.id, content }
+				})
+			});
+			if (!searchResponse.ok) throw new Error((await searchResponse.text()) || 'Recipe source search failed.');
+			const searchResult = await searchResponse.json();
+			if (searchResult.kind === 'choose') {
+				const recipeSearch: PendingRecipeSearchView = {
+					id: searchResult.searchId,
+					assistantMessageId: searchResult.assistantMessageId,
+					status: 'pending',
+					selectedCandidateId: null,
+					expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1_000).toISOString(),
+					candidates: searchResult.candidates
+				};
+				chat.messages = [...chat.messages, userMessage, {
+					id: searchResult.assistantMessageId,
+					role: 'assistant',
+					parts: [{ type: 'text', text: searchResult.assistantContent }],
+					metadata: { createdAt: new Date().toISOString(), recipeSearch }
+				}];
+				pendingDraft = '';
+				persistedConversationId = conversation.id;
+				sourceSearchPending = false;
+				await refreshAfterGeneration();
+				return;
+			}
+			sourceSearchPending = false;
 			await chat.sendMessage(
-				{
-					id: crypto.randomUUID(),
-					role: 'user',
-					parts: [{ type: 'text', text: content }],
-					metadata: { createdAt: new Date().toISOString() }
-				},
+				userMessage,
 				{ body: { conversationId: conversation.id } }
 			);
 		} catch (cause) {
+			sourceSearchPending = false;
 			chatError = cause instanceof Error ? cause.message : 'The recipe assistant could not respond.';
 			if (!persistedConversationId) draft = content;
+			await refreshAfterGeneration();
+		}
+	}
+
+	async function selectRecipeSource(search: PendingRecipeSearchView, candidate: RecipeCandidateView) {
+		if (sending || quotaExhausted || !candidate.approved || search.status !== 'pending' || !currentConversation) return;
+		chatError = '';
+		generationSettled = false;
+		persistedConversationId = null;
+		const content = `Use “${candidate.title}” from ${candidate.domain}.`;
+		try {
+			await chat.sendMessage({
+				id: crypto.randomUUID(),
+				role: 'user',
+				parts: [{ type: 'text', text: content }],
+				metadata: { createdAt: new Date().toISOString() }
+			}, {
+				body: {
+					conversationId: currentConversation.id,
+					recipeSelection: { searchId: search.id, candidateId: candidate.id }
+				}
+			});
+		} catch (cause) {
+			chatError = cause instanceof Error ? cause.message : 'The selected recipe source could not be used.';
 			await refreshAfterGeneration();
 		}
 	}
@@ -340,7 +428,10 @@
 							<article class={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
 								<div class={`max-w-[85%] rounded-container px-4 py-3 text-sm leading-6 sm:max-w-[75%] ${message.role === 'user' ? 'bg-primary-500 text-primary-contrast-500' : 'bg-surface-100-900 text-surface-950-50 ring-1 ring-surface-300-700'}`}>
 									{#if message.role === 'assistant'}
-										<MarkdownMessage source={messageText(message)} allergenTerms={data.allergenTerms} />
+									<MarkdownMessage source={messageText(message)} allergenTerms={data.allergenTerms} />
+									{#if message.metadata?.recipeSearch}
+										<RecipeSourceCards search={message.metadata.recipeSearch} disabled={sending || quotaExhausted} onselect={(candidate) => selectRecipeSource(message.metadata!.recipeSearch!, candidate)} />
+									{/if}
 									{:else}
 										<p class="whitespace-pre-wrap">{messageText(message)}</p>
 									{/if}

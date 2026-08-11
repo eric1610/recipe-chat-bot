@@ -3,7 +3,7 @@ import { error, fail, redirect } from '@sveltejs/kit';
 import { getAiUsage, isQuotaExempt } from '$lib/server/ai/quota';
 import { loadAllergenWarningTerms } from '$lib/server/allergens';
 import { getDatabase, type Database } from '$lib/server/db';
-import { conversations, messages, users } from '$lib/server/db/schema';
+import { conversations, messages, recipeSearches, users } from '$lib/server/db/schema';
 import { isUuid, readSameOriginFormData } from '$lib/server/security/request';
 import { and, asc, desc, eq } from 'drizzle-orm';
 
@@ -45,11 +45,26 @@ export async function loadChatData(
 			.limit(1);
 		if (!ownedConversation) error(404, 'Conversation not found.');
 
-		const records = await database
-			.select()
-			.from(messages)
-			.where(eq(messages.conversationId, conversationId))
-			.orderBy(asc(messages.position));
+		const [records, searches] = await Promise.all([
+			database
+				.select()
+				.from(messages)
+				.where(eq(messages.conversationId, conversationId))
+				.orderBy(asc(messages.position)),
+			database
+				.select()
+				.from(recipeSearches)
+				.where(and(eq(recipeSearches.conversationId, conversationId), eq(recipeSearches.userId, userId)))
+		]);
+		const now = new Date();
+		const searchByMessage = new Map(searches.map((search) => [search.assistantMessageId, {
+			id: search.id,
+			assistantMessageId: search.assistantMessageId,
+			status: search.expiresAt <= now ? 'expired' as const : search.status,
+			selectedCandidateId: search.selectedCandidateId,
+			expiresAt: search.expiresAt.toISOString(),
+			candidates: search.candidates.map(({ facts: _facts, sourceKey: _sourceKey, ...candidate }) => candidate)
+		}]));
 		currentConversation = {
 			...ownedConversation,
 			createdAt: ownedConversation.createdAt.toISOString(),
@@ -58,7 +73,8 @@ export async function loadChatData(
 		};
 		currentMessages = records.map((message) => ({
 			...message,
-			createdAt: message.createdAt.toISOString()
+			createdAt: message.createdAt.toISOString(),
+			recipeSearch: searchByMessage.get(message.id)
 		}));
 	}
 

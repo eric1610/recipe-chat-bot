@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
 	persistUserMessageForGeneration: vi.fn(),
 	persistDeclaredAllergies: vi.fn(),
 	reserveAiQuota: vi.fn(),
+	resolveRecipeSelection: vi.fn(),
 	streamText: vi.fn()
 }));
 
@@ -43,6 +44,11 @@ vi.mock('$lib/server/ai/quota', () => ({
 	reserveAiQuota: mocks.reserveAiQuota
 }));
 vi.mock('$lib/server/security/limits', () => ({ consumeRateLimit: mocks.consumeRateLimit }));
+vi.mock('$lib/server/recipes/persistence', () => ({
+	RecipeSearchAccessError: class RecipeSearchAccessError extends Error {},
+	RecipeSearchExpiredError: class RecipeSearchExpiredError extends Error {},
+	resolveRecipeSelection: mocks.resolveRecipeSelection
+}));
 
 const database = {
 	select: vi.fn(() => ({
@@ -155,5 +161,43 @@ describe('preference-aware chat generation', () => {
 		).rejects.toMatchObject({ status: 403 });
 		expect(mocks.reserveAiQuota).not.toHaveBeenCalled();
 		expect(mocks.streamText).not.toHaveBeenCalled();
+	});
+
+	it('resolves a source selection server-side and adds bounded source instructions', async () => {
+		mocks.resolveRecipeSelection.mockResolvedValue({
+			content: 'Use “Tomato Pasta” from recipes.example.',
+			instructions: '\n\nSelected recipe facts (JSON data): {"title":"Tomato Pasta"}'
+		});
+		mocks.getRecentConversationContext.mockResolvedValue([
+			{ role: 'user', content: 'Use “Tomato Pasta” from recipes.example.' }
+		]);
+		const request = new Request('https://recipe.example/api/chat', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json', origin: 'https://recipe.example' },
+			body: JSON.stringify({
+				conversationId,
+				message: { id: messageId },
+				recipeSelection: {
+					searchId: '018f47a2-2d8e-7a15-8f7e-2123456789ab',
+					candidateId: '018f47a2-2d8e-7a15-8f7e-3123456789ab'
+				}
+			})
+		});
+
+		const response = await POST({
+			request,
+			locals: { auth: vi.fn().mockResolvedValue({ user: { id: 'user-1' } }) },
+			url: new URL(request.url)
+		} as never);
+
+		expect(response.status).toBe(200);
+		expect(mocks.resolveRecipeSelection).toHaveBeenCalledWith(database, expect.objectContaining({
+			userId: 'user-1', conversationId
+		}));
+		expect(mocks.persistUserMessageForGeneration).toHaveBeenCalledWith(database, expect.objectContaining({
+			content: 'Use “Tomato Pasta” from recipes.example.'
+		}));
+		expect(mocks.persistDeclaredAllergies).not.toHaveBeenCalled();
+		expect(mocks.streamText.mock.calls[0][0].instructions).toContain('Selected recipe facts');
 	});
 });

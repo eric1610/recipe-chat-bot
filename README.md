@@ -57,23 +57,26 @@ pnpm run db:generate
    - `https://YOUR_DOMAIN/auth/callback/google`
    - `https://YOUR_DOMAIN/auth/callback/github`
 3. Add `DATABASE_URL`, `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `AUTH_GITHUB_ID`,
-   `AUTH_GITHUB_SECRET`, `OPENROUTER_API_KEY`, `AI_DAILY_CAP_EXEMPT_EMAILS`, and `CRON_SECRET` as
-   **Sensitive, Production-only** Vercel variables. Generate `CRON_SECRET` independently with
-   `openssl rand -hex 32`. The exemption variable is a comma-separated server-side allowlist and
-   bypasses only the personal AI cap.
+   `AUTH_GITHUB_SECRET`, `OPENROUTER_API_KEY`, `BRAVE_SEARCH_API_KEY`,
+   `AI_DAILY_CAP_EXEMPT_EMAILS`, and `CRON_SECRET` as **Sensitive, Production-only** Vercel
+   variables. Generate `CRON_SECRET` independently with `openssl rand -hex 32`. The exemption
+   variable is a comma-separated server-side allowlist and bypasses only the personal AI cap. Set
+   `RECIPE_WEB_SEARCH_ENABLED=true` and optionally `RECIPE_SEARCH_DAILY_CAP` only after applying the
+   recipe migrations. Metadata-only links still work when the approved-source registry is empty.
 4. Use a least-privileged Neon role for the runtime `DATABASE_URL`. Keep the schema-owner migration
    credential outside Vercel and use it only while running `pnpm run db:migrate`. Before enabling
    cleanup, verify the runtime role can update `ai_generation_attempts` and delete from
-   `ai_generation_attempts`, `ai_quota_windows`, and `security_rate_limits` without granting
-   schema-owner privileges.
+   `ai_generation_attempts`, `ai_quota_windows`, `security_rate_limits`, `recipe_searches`,
+   `recipe_cache`, and `recipe_search_quota_windows` without granting schema-owner privileges.
 5. Run committed migrations before deploying application code that requires the new schema.
 6. Deploy `main` through Vercel's Git integration. Preview and development deployments are blocked
    from receiving production credentials, and non-`main` Vercel builds are ignored.
 7. GitHub Actions scans the full Git history for secrets, runs checks and tests, and audits the
    dependency graph. Vercel performs the only production build and deployment.
 8. Vercel invokes `/api/cron/ai-quota-cleanup` daily during the 02:00 UTC hour to prune expired AI
-   metadata, quota windows, and application rate-limit rows. After the first deployment, verify the
-   Cron Jobs dashboard shows a successful authenticated invocation.
+   metadata, recipe-search demand and quota rows, quota windows, and application rate-limit rows.
+   After the first deployment, verify the Cron Jobs dashboard shows a successful authenticated
+   invocation.
 9. In Vercel Firewall, rate-limit `POST /api/chat` by IP. Begin with a 20-request/60-second fixed
 	window in Log mode, observe production traffic for 24 hours, and then enforce the rule with `429`.
 
@@ -95,6 +98,13 @@ commercial host before using the application commercially.
   chat statements such as “I'm allergic to peanuts” are saved to the signed-in account before that
   response is generated; hypothetical, negated, and third-person mentions are not saved. Saved
   allergies remain editable in Settings.
+- Optional web recipe discovery uses Brave metadata without sending the user's complete message or
+  saved profile to Brave. Only database-approved HTTPS domains may be fetched for Schema.org Recipe
+  data. Source policy is changed through reviewed migrations; run
+  `pnpm recipe:sources:audit -- https://example.com/recipe` before approving a domain.
+- A source selected three times within 30 days is promoted to the shared cache. The cache retains
+  normalized recipe facts, attribution, and freshness data—not page HTML, images, article prose, or
+  user identity. Pending source choices expire after 24 hours and cascade with account deletion.
 - Message input and model output are normalized before storage. Assistant Markdown is converted to
   HTML only at display time, with raw HTML escaped, remote images disabled, and generated HTML
   restricted to an explicit tag, attribute, and URL-scheme allowlist.
@@ -108,8 +118,8 @@ commercial host before using the application commercially.
   `/chat/[conversationId]`; direct navigation and refresh restore the complete ordered message chain
   from Neon after an ownership check.
 - Google and GitHub accounts with matching emails are not linked automatically.
-- Account deletion cascades through OAuth accounts, sessions, preferences, conversations, and
-  messages, saved allergies, and identifiable AI-attempt records stored by this application.
+- Account deletion cascades through OAuth accounts, sessions, preferences, conversations,
+  messages, pending recipe-source choices, saved allergies, and identifiable AI-attempt records.
   Anonymous aggregate quota-window counts remain operational metrics without conversation content.
 - AI-attempt metadata contains user, conversation, and message identifiers, status, model, timing,
   token totals, and sanitized error codes—but no prompt or response text. It is deleted seven days

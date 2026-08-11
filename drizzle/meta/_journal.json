@@ -29,6 +29,20 @@
       "when": 1785986817504,
       "tag": "0003_broad_black_cat",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1786413639611,
+      "tag": "0004_groovy_molten_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1786413881505,
+      "tag": "0005_sturdy_orphan",
+      "breakpoints": true
     }
   ]
 }
