@@ -57,8 +57,8 @@ pnpm run db:generate
    - `https://YOUR_DOMAIN/auth/callback/google`
    - `https://YOUR_DOMAIN/auth/callback/github`
 3. Add `DATABASE_URL`, `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `AUTH_GITHUB_ID`,
-   `AUTH_GITHUB_SECRET`, `OPENROUTER_API_KEY`, `BRAVE_SEARCH_API_KEY`,
-   `AI_DAILY_CAP_EXEMPT_EMAILS`, and `CRON_SECRET` as **Sensitive, Production-only** Vercel
+   `AUTH_GITHUB_SECRET`, `OPENROUTER_API_KEY`, `AI_DAILY_CAP_EXEMPT_EMAILS`, and `CRON_SECRET` as
+   **Sensitive, Production-only** Vercel
    variables. Generate `CRON_SECRET` independently with `openssl rand -hex 32`. The exemption
    variable is a comma-separated server-side allowlist and bypasses only the personal AI cap. Set
    `RECIPE_WEB_SEARCH_ENABLED=true` and optionally `RECIPE_SEARCH_DAILY_CAP` only after applying the
@@ -98,10 +98,12 @@ commercial host before using the application commercially.
   chat statements such as “I'm allergic to peanuts” are saved to the signed-in account before that
   response is generated; hypothetical, negated, and third-person mentions are not saved. Saved
   allergies remain editable in Settings.
-- Optional web recipe discovery uses Brave metadata without sending the user's complete message or
-  saved profile to Brave. Only database-approved HTTPS domains may be fetched for Schema.org Recipe
-  data. Source policy is changed through reviewed migrations; run
-  `pnpm recipe:sources:audit -- https://example.com/recipe` before approving a domain.
+- Optional recipe discovery sends only a reduced dish or cuisine query—not the user's complete
+  message or saved profile—to the official English Wikibooks MediaWiki API. Recipe text is adapted
+  from the Wikibooks Cookbook under CC BY-SA 4.0 with source attribution, license linking, and a
+  modification disclosure. Images are not imported. Other HTTPS domains remain unavailable for
+  extraction unless separately reviewed and approved through a migration; run
+  `pnpm recipe:sources:audit -- https://example.com/recipe` before approving a Schema.org source.
 - A source selected three times within 30 days is promoted to the shared cache. The cache retains
   normalized recipe facts, attribution, and freshness data—not page HTML, images, article prose, or
   user identity. Pending source choices expire after 24 hours and cascade with account deletion.

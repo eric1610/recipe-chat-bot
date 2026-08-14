@@ -25,6 +25,11 @@
 				</span>
 			</div>
 			{#if candidate.snippet}<p class="mt-3 text-sm leading-6 text-surface-700-300">{candidate.snippet}</p>{/if}
+			{#if candidate.licenseName && candidate.licenseUrl}
+				<p class="mt-2 text-xs text-surface-600-400">
+					Adapted source · <a class="font-bold underline" href={candidate.licenseUrl} target="_blank" rel="noopener noreferrer">{candidate.licenseName}</a>
+				</p>
+			{/if}
 			<div class="mt-4 flex flex-wrap gap-2">
 				<a class="btn preset-tonal-surface text-sm" href={candidate.url} target="_blank" rel="noopener noreferrer">View source</a>
 				{#if candidate.approved}

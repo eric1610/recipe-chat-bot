@@ -11,14 +11,13 @@ import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 interface RecipeSearchDependencies {
-	getConfig: () => { enabled: boolean; apiKey?: string; sharedLimit?: string };
+	getConfig: () => { enabled: boolean; sharedLimit?: string };
 	getDatabase: () => Database;
 	findCached: (database: Database, queryKey: string) => Promise<StoredRecipeCandidate[]>;
 	reserve: (database: Database, userId: string, sharedLimit?: string) => Promise<{ allowed: boolean; retryAfter: number }>;
 	discover: (database: Database, input: {
 		queryText: string;
 		queryKey: string;
-		apiKey: string;
 		cachedCandidates?: StoredRecipeCandidate[];
 	}) => Promise<StoredRecipeCandidate[]>;
 	persist: typeof persistRecipeSearch;
@@ -46,7 +45,6 @@ export function _createRecipeSearchHandler(dependencies: RecipeSearchDependencie
 	try {
 		candidates = await dependencies.findCached(database, intent.queryKey);
 		if (candidates.length < 3) {
-			if (!config.apiKey) error(503, 'Recipe source search is not configured yet.');
 			const quota = await dependencies.reserve(database, session.user.id, config.sharedLimit);
 			if (!quota.allowed) {
 				return new Response('Recipe source search is temporarily limited. Try again later.', {
@@ -56,7 +54,6 @@ export function _createRecipeSearchHandler(dependencies: RecipeSearchDependencie
 			}
 			candidates = await dependencies.discover(database, {
 				...intent,
-				apiKey: config.apiKey,
 				cachedCandidates: candidates
 			});
 		}
@@ -85,7 +82,6 @@ export function _createRecipeSearchHandler(dependencies: RecipeSearchDependencie
 export const POST: RequestHandler = _createRecipeSearchHandler({
 	getConfig: () => ({
 		enabled: env.RECIPE_WEB_SEARCH_ENABLED === 'true',
-		apiKey: env.BRAVE_SEARCH_API_KEY,
 		sharedLimit: env.RECIPE_SEARCH_DAILY_CAP
 	}),
 	getDatabase,

@@ -1,11 +1,11 @@
 import { sanitizeMessageContent } from '$lib/chat/content';
 
-const cuisines = [
+export const RECIPE_CUISINES = [
 	'american', 'brazilian', 'cajun', 'canadian', 'caribbean', 'chinese', 'ethiopian',
 	'french', 'greek', 'indian', 'indonesian', 'italian', 'japanese', 'korean', 'lebanese',
 	'malaysian', 'mediterranean', 'mexican', 'moroccan', 'nigerian', 'persian', 'filipino',
 	'spanish', 'thai', 'turkish', 'vietnamese'
-];
+] as const;
 
 const explicitRecipePattern =
 	/\b(?:recipe\s+for|find\s+(?:me\s+)?(?:a\s+)?recipe|show\s+me\s+how\s+to|how\s+(?:do|can|should)\s+i\s+(?:make|cook|bake|prepare)|(?:make|cook|bake|prepare)\s+(?:me\s+)?(?:a\s+)?)/i;
@@ -20,7 +20,7 @@ export interface RecipeLookupIntent {
 export function detectRecipeLookupIntent(value: string): RecipeLookupIntent | null {
 	const content = sanitizeMessageContent(value).normalize('NFKC').replace(/\s+/g, ' ').trim();
 	if (!content) return null;
-	const cuisinePattern = new RegExp(`\\b(?:${cuisines.join('|')})\\b`, 'i');
+	const cuisinePattern = new RegExp(`\\b(?:${RECIPE_CUISINES.join('|')})\\b`, 'i');
 	if (!explicitRecipePattern.test(content) && !(requestPattern.test(content) && cuisinePattern.test(content))) {
 		return null;
 	}

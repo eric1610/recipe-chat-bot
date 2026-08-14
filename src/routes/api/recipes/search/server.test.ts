@@ -23,7 +23,7 @@ function request(content: string, origin = 'https://recipe.example') {
 
 describe('recipe source search endpoint', () => {
 	const dependencies = {
-		getConfig: vi.fn(() => ({ enabled: true, apiKey: 'brave-test', sharedLimit: '50' })),
+		getConfig: vi.fn(() => ({ enabled: true, sharedLimit: '50' })),
 		getDatabase: vi.fn(() => ({}) as never),
 		findCached: vi.fn(async () => [] as StoredRecipeCandidate[]),
 		reserve: vi.fn(async () => ({ allowed: true, retryAfter: 0 })),
@@ -60,7 +60,7 @@ describe('recipe source search endpoint', () => {
 
 		expect(response.status).toBe(200);
 		expect(dependencies.discover).toHaveBeenCalledWith(expect.anything(), {
-			queryText: 'pad thai', queryKey: 'pad-thai', apiKey: 'brave-test', cachedCandidates: []
+			queryText: 'pad thai', queryKey: 'pad-thai', cachedCandidates: []
 		});
 		const body = await response.json();
 		expect(body.kind).toBe('choose');

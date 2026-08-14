@@ -19,6 +19,9 @@ export interface StoredRecipeCandidate {
 	approved: boolean;
 	sourceKey: string;
 	facts: RecipeFacts | null;
+	licenseName?: string;
+	licenseUrl?: string;
+	adapted?: boolean;
 }
 
 export interface RecipeCandidateView {
@@ -28,6 +31,9 @@ export interface RecipeCandidateView {
 	url: string;
 	snippet: string;
 	approved: boolean;
+	licenseName?: string;
+	licenseUrl?: string;
+	adapted?: boolean;
 }
 
 export interface PendingRecipeSearchView {

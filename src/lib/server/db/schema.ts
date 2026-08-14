@@ -173,7 +173,7 @@ export const recipeSourcePolicies = pgTable('recipe_source_policies', {
 	allowedPathPrefixes: jsonb('allowed_path_prefixes').$type<string[]>().notNull().default([]),
 	termsUrl: text('terms_url').notNull(),
 	attributionName: text('attribution_name').notNull(),
-	parser: text('parser').$type<'schema_recipe'>().notNull().default('schema_recipe'),
+	parser: text('parser').$type<'schema_recipe' | 'mediawiki_cookbook'>().notNull().default('schema_recipe'),
 	reviewedAt: timestamp('reviewed_at', { withTimezone: true }).notNull(),
 	notes: text('notes').notNull().default(''),
 	createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

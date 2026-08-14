@@ -122,8 +122,9 @@ observability.
 - [ ] Add food-safety guidance where relevant
 - [x] Persist Health Canada priority allergens and account-scoped allergy declarations, flag matching
   recipe ingredients, and state that generated guidance does not replace professional medical advice
-- [x] Discover web recipe sources through metadata search, restrict extraction to database-approved
-  domains, let users choose a source, and promote frequently selected normalized recipes to a cache
+- [x] Discover openly licensed Wikibooks Cookbook recipes through its official API, require a
+  reviewed source policy, let users choose a source, preserve CC BY-SA attribution, and promote
+  frequently selected normalized recipes to a cache
 - [ ] Avoid claiming that uncertain ingredient, nutrition, or safety information is verified
 
 ### Conversation experience

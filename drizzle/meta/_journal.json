@@ -43,6 +43,13 @@
       "when": 1786413881505,
       "tag": "0005_sturdy_orphan",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1786682785241,
+      "tag": "0006_approve_wikibooks",
+      "breakpoints": true
     }
   ]
 }
