@@ -33,6 +33,9 @@ pnpm audit --audit-level=low
 Advisory-lock and destructive cleanup integration tests require an isolated, migrated Postgres
 database whose name contains `test`. Set only `TEST_DATABASE_URL`, make sure it differs from
 `DATABASE_URL`, and run `pnpm run test:db`. Never use a production or shared preview database.
+GitHub Actions runs this suite after pushes to `main` and on manual dispatch using an encrypted
+`TEST_DATABASE_URL` repository secret. Database runs are serialized so they cannot mutate the
+shared test database concurrently; pull-request workflows never receive the secret.
 
 The authenticated application is tested through the protected Vercel production environment.
 Production credentials, including the OpenRouter API key, must not be copied into `.env`,
