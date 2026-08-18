@@ -38,7 +38,7 @@
 		"vitest": "^4.1.10"
 	},
 	"dependencies": {
-		"@ai-sdk/svelte": "5.0.35",
+		"@ai-sdk/svelte": "5.0.48",
 		"@auth/drizzle-adapter": "1.11.3",
 		"@auth/sveltekit": "1.11.3",
 		"@neondatabase/serverless": "1.1.0",
