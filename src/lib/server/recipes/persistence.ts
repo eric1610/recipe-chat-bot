@@ -215,6 +215,39 @@ export async function resolveRecipeSelection(
 	});
 }
 
+export async function resolveRetryRecipeSelection(
+	database: Database,
+	input: {
+		userId: string;
+		conversationId: string;
+		userMessagePosition: number;
+	}
+): Promise<{ content: string; instructions: string } | null> {
+	const [search] = await database
+		.select({
+			id: recipeSearches.id,
+			candidateId: recipeSearches.selectedCandidateId
+		})
+		.from(recipeSearches)
+		.innerJoin(messages, eq(messages.id, recipeSearches.assistantMessageId))
+		.where(
+			and(
+				eq(recipeSearches.userId, input.userId),
+				eq(recipeSearches.conversationId, input.conversationId),
+				eq(recipeSearches.status, 'selected'),
+				eq(messages.position, input.userMessagePosition - 1)
+			)
+		)
+		.limit(1);
+	if (!search?.candidateId) return null;
+	return resolveRecipeSelection(database, {
+		userId: input.userId,
+		conversationId: input.conversationId,
+		searchId: search.id,
+		candidateId: search.candidateId
+	});
+}
+
 export async function cleanupRecipeSearchData(database: Database, now = new Date()) {
 	const expired = await database
 		.delete(recipeSearches)

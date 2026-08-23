@@ -1,7 +1,11 @@
 import type { AiUsageSnapshot } from '$lib/chat/usage';
 import type { Database } from '$lib/server/db';
-import { aiGenerationAttempts, aiQuotaWindows } from '$lib/server/db/schema';
-import { and, eq, inArray, lt, sql } from 'drizzle-orm';
+import {
+	aiGenerationAttempts,
+	aiQuotaWindows,
+	type AiGenerationAttemptStatus
+} from '$lib/server/db/schema';
+import { and, desc, eq, inArray, lt, sql } from 'drizzle-orm';
 
 export const OPENROUTER_PROVIDER = 'openrouter';
 export const OPENROUTER_MODEL = 'openrouter/free';
@@ -10,6 +14,27 @@ export const SHARED_DAILY_LIMIT = 50;
 export const AI_ATTEMPT_EXPIRY_MS = 120_000;
 
 const activeAttemptStatuses = ['reserved', 'started'] as const;
+const retryableAttemptStatuses = ['failed', 'cancelled', 'provider_limited'] as const;
+
+export class AiMessageAttemptConflictError extends Error {}
+export class AiRetryNotAllowedError extends Error {}
+
+export function assertAiMessageAttemptAllowed(
+	latestStatus: AiGenerationAttemptStatus | null,
+	mode: 'new' | 'retry'
+): void {
+	if (mode === 'retry') {
+		if (!latestStatus || !retryableAttemptStatuses.includes(
+			latestStatus as (typeof retryableAttemptStatuses)[number]
+		)) {
+			throw new AiRetryNotAllowedError('This response can no longer be retried.');
+		}
+		return;
+	}
+	if (latestStatus) {
+		throw new AiMessageAttemptConflictError('The message already has a generation attempt.');
+	}
+}
 
 export type AiQuotaDenial = 'personal_limit' | 'shared_limit' | 'provider_limit';
 
@@ -169,6 +194,7 @@ export async function reserveAiQuota(
 		conversationId: string;
 		userMessageId: string;
 		isExempt: boolean;
+		mode?: 'new' | 'retry';
 		now?: Date;
 	},
 	onReserved?: (transaction: Database, attemptId: string) => Promise<void>
@@ -226,6 +252,19 @@ export async function reserveAiQuota(
 				usage
 			};
 		}
+
+		const [latestMessageAttempt] = await tx
+			.select({ status: aiGenerationAttempts.status })
+			.from(aiGenerationAttempts)
+			.where(
+				and(
+					eq(aiGenerationAttempts.userId, input.userId),
+					eq(aiGenerationAttempts.userMessageId, input.userMessageId)
+				)
+			)
+			.orderBy(desc(aiGenerationAttempts.createdAt))
+			.limit(1);
+		assertAiMessageAttemptAllowed(latestMessageAttempt?.status ?? null, input.mode ?? 'new');
 
 		const attemptId = crypto.randomUUID();
 		await tx.insert(aiGenerationAttempts).values({

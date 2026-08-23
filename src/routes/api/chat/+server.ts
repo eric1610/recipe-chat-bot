@@ -7,7 +7,10 @@ import { users } from '$lib/server/db/schema';
 import { classifyProviderFailure } from '$lib/server/ai/errors';
 import { buildCookingSkillInstructions } from '$lib/server/ai/cooking-skill';
 import {
+	ConversationAccessError,
+	ConversationRetryError,
 	getRecentConversationContext,
+	loadRetryableUserMessage,
 	persistCompletedAssistant,
 	persistUserMessageForGeneration
 } from '$lib/server/ai/persistence';
@@ -20,7 +23,8 @@ import {
 	markAiAttemptStarted,
 	markOpenRouterLimited,
 	OPENROUTER_MODEL,
-	reserveAiQuota
+	reserveAiQuota,
+	AiRetryNotAllowedError
 } from '$lib/server/ai/quota';
 import { parseChatGenerationRequest } from '$lib/server/ai/request';
 import { consumeRateLimit } from '$lib/server/security/limits';
@@ -28,6 +32,7 @@ import { readSameOriginJson } from '$lib/server/security/request';
 import {
 	RecipeSearchAccessError,
 	RecipeSearchExpiredError,
+	resolveRetryRecipeSelection,
 	resolveRecipeSelection
 } from '$lib/server/recipes/persistence';
 import { eq } from 'drizzle-orm';
@@ -81,9 +86,38 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 		.limit(1);
 	if (!user) error(401, 'Your account session is no longer valid.');
 
+	const isRetry = 'retry' in payload;
 	let messageContent = 'content' in payload.message ? payload.message.content : '';
 	let sourceInstructions = '';
-	if ('recipeSelection' in payload) {
+	if (isRetry) {
+		try {
+			const retryMessage = await loadRetryableUserMessage(database, {
+				userId: session.user.id,
+				conversationId: payload.conversationId,
+				messageId: payload.message.id
+			});
+			messageContent = retryMessage.content;
+			const source = await resolveRetryRecipeSelection(database, {
+				userId: session.user.id,
+				conversationId: payload.conversationId,
+				userMessagePosition: retryMessage.position
+			});
+			if (source) {
+				if (source.content !== messageContent) {
+					throw new ConversationRetryError('This response can no longer be retried.');
+				}
+				sourceInstructions = source.instructions;
+			}
+		} catch (cause) {
+			if (cause instanceof ConversationAccessError || cause instanceof RecipeSearchAccessError) {
+				error(404, 'Conversation not found.');
+			}
+			if (cause instanceof ConversationRetryError || cause instanceof RecipeSearchExpiredError) {
+				error(409, 'This response can no longer be retried.');
+			}
+			throw cause;
+		}
+	} else if ('recipeSelection' in payload) {
 		try {
 			const selection = await resolveRecipeSelection(database, {
 				userId: session.user.id,
@@ -117,17 +151,26 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 				userId: session.user.id,
 				conversationId: payload.conversationId,
 				userMessageId: payload.message.id,
-				isExempt: isQuotaExempt(user.email, env.AI_DAILY_CAP_EXEMPT_EMAILS ?? '')
+				isExempt: isQuotaExempt(user.email, env.AI_DAILY_CAP_EXEMPT_EMAILS ?? ''),
+				mode: isRetry ? 'retry' : 'new'
 			},
 			async (transaction) => {
-				await persistUserMessageForGeneration(transaction, {
-					userId: session.user.id,
-					conversationId: payload.conversationId,
-					messageId: payload.message.id,
-					content: messageContent,
-					now: new Date()
-				});
-				if (!('recipeSelection' in payload)) {
+				if (isRetry) {
+					await loadRetryableUserMessage(transaction, {
+						userId: session.user.id,
+						conversationId: payload.conversationId,
+						messageId: payload.message.id
+					});
+				} else {
+					await persistUserMessageForGeneration(transaction, {
+						userId: session.user.id,
+						conversationId: payload.conversationId,
+						messageId: payload.message.id,
+						content: messageContent,
+						now: new Date()
+					});
+				}
+				if (!isRetry && !('recipeSelection' in payload)) {
 					await persistDeclaredAllergies(transaction, session.user.id, messageContent);
 				}
 				context = await getRecentConversationContext(
@@ -141,7 +184,11 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 				)}${buildPreferenceInstructions(preferences)}${sourceInstructions}`;
 			}
 		);
-	} catch {
+	} catch (cause) {
+		if (cause instanceof AiRetryNotAllowedError || cause instanceof ConversationRetryError) {
+			error(409, 'This response can no longer be retried.');
+		}
+		if (cause instanceof ConversationAccessError) error(404, 'Conversation not found.');
 		error(409, 'The message could not be saved safely. Refresh the conversation and try again.');
 	}
 	if (!reservation.allowed || !reservation.attemptId) {

@@ -8,7 +8,12 @@ import {
 	users
 } from '$lib/server/db/schema';
 import { and, eq } from 'drizzle-orm';
-import { ConversationAccessError, persistCompletedAssistant, persistUserMessageForGeneration } from './persistence';
+import {
+	ConversationAccessError,
+	loadRetryableUserMessage,
+	persistCompletedAssistant,
+	persistUserMessageForGeneration
+} from './persistence';
 import {
 	getAiUsage,
 	getUtcQuotaWindow,
@@ -124,6 +129,104 @@ describeDatabase('successful-response accounting with PostgreSQL', () => {
 			await expect(
 				persistCompletedAssistant(db, { ...completion, assistantMessageId: crypto.randomUUID() })
 			).rejects.toThrow('already completed with another response');
+		} finally {
+			await db.delete(users).where(eq(users.id, userId));
+			await db.delete(aiQuotaWindows).where(
+				and(
+					eq(aiQuotaWindows.provider, OPENROUTER_PROVIDER),
+					eq(aiQuotaWindows.windowStart, window.start)
+				)
+			);
+		}
+	});
+
+	it('retries one failed attempt without duplicating its user message', async () => {
+		const db = database as Database;
+		const now = new Date('2040-01-17T17:30:00.000Z');
+		const window = getUtcQuotaWindow(now);
+		const userId = `quota-retry-${crypto.randomUUID()}`;
+		const conversationId = crypto.randomUUID();
+		const userMessageId = crypto.randomUUID();
+
+		try {
+			await db.insert(users).values({ id: userId, email: `${userId}@example.test` });
+			const first = await reserveAiQuota(
+				db,
+				{ userId, conversationId, userMessageId, isExempt: false, now },
+				(transaction) => persistUserMessageForGeneration(transaction, {
+					userId,
+					conversationId,
+					messageId: userMessageId,
+					content: 'Make tomato soup.',
+					now
+				})
+			);
+			await markAiAttemptStarted(db, first.attemptId!, new Date(now.getTime() + 100));
+			await markAiAttemptFailed(
+				db,
+				first.attemptId!,
+				'provider_timeout',
+				'failed',
+				new Date(now.getTime() + 200)
+			);
+
+			const retryResults = await Promise.allSettled(
+				Array.from({ length: 2 }, () => reserveAiQuota(
+					db,
+					{
+						userId,
+						conversationId,
+						userMessageId,
+						isExempt: false,
+						mode: 'retry',
+						now: new Date(now.getTime() + 300)
+					},
+					(transaction) => loadRetryableUserMessage(transaction, {
+						userId,
+						conversationId,
+						messageId: userMessageId
+					}).then(() => undefined)
+				))
+			);
+			expect(retryResults.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+			expect(retryResults.filter((result) => result.status === 'rejected')).toHaveLength(1);
+			const retry = retryResults.find(
+				(result): result is PromiseFulfilledResult<Awaited<ReturnType<typeof reserveAiQuota>>> =>
+					result.status === 'fulfilled'
+			)!.value;
+			await markAiAttemptStarted(db, retry.attemptId!, new Date(now.getTime() + 400));
+			await persistCompletedAssistant(db, {
+				attemptId: retry.attemptId!,
+				userId,
+				conversationId,
+				assistantMessageId: crypto.randomUUID(),
+				content: '## Tomato soup\n\nA complete retry.',
+				usage,
+				now: new Date(now.getTime() + 500)
+			});
+
+			const storedMessages = await db
+				.select({ role: messages.role, position: messages.position })
+				.from(messages)
+				.where(eq(messages.conversationId, conversationId));
+			expect(storedMessages).toEqual(expect.arrayContaining([
+				{ role: 'user', position: 0 },
+				{ role: 'assistant', position: 1 }
+			]));
+			expect(storedMessages).toHaveLength(2);
+
+			const attempts = await db
+				.select({ status: aiGenerationAttempts.status })
+				.from(aiGenerationAttempts)
+				.where(eq(aiGenerationAttempts.userMessageId, userMessageId));
+			expect(attempts).toEqual(expect.arrayContaining([
+				{ status: 'failed' },
+				{ status: 'completed' }
+			]));
+			expect(attempts).toHaveLength(2);
+			expect(await getAiUsage(db, userId, false, new Date(now.getTime() + 500))).toMatchObject({
+				user: { used: 1 }
+			});
 		} finally {
 			await db.delete(users).where(eq(users.id, userId));
 			await db.delete(aiQuotaWindows).where(

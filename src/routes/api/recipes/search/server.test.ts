@@ -102,4 +102,19 @@ describe('recipe source search endpoint', () => {
 		} as never)).rejects.toMatchObject({ status: 403 });
 		expect(dependencies.discover).not.toHaveBeenCalled();
 	});
+
+	it('rejects retry payloads without repeating recipe discovery', async () => {
+		const sourceRequest = new Request('https://recipe.example/api/recipes/search', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json', origin: 'https://recipe.example' },
+			body: JSON.stringify({ conversationId, message: { id: messageId }, retry: true })
+		});
+		await expect(handler({
+			request: sourceRequest,
+			url: new URL(sourceRequest.url),
+			locals: { auth: vi.fn().mockResolvedValue({ user: { id: 'user-1' } }) }
+		} as never)).rejects.toMatchObject({ status: 400 });
+		expect(dependencies.discover).not.toHaveBeenCalled();
+		expect(dependencies.persist).not.toHaveBeenCalled();
+	});
 });

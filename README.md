@@ -154,8 +154,10 @@ commercial host before using the application commercially.
   its `Retry-After` time or the next internal UTC window.
 - Failed, cancelled, and provider-limited attempts remain counted against shared capacity because
   OpenRouter may have received them, but they do not consume the user's successful-response
-  allowance. Completed assistant messages and token totals are saved only after streaming finishes
-  successfully.
+  allowance. During the current browser flow, the user can explicitly retry a failed or stopped
+  response without duplicating the saved user message. Each retry is a new shared-capacity attempt,
+  and personal usage is still charged only if its assistant response is persisted successfully.
+  Completed assistant messages and token totals are saved only after streaming finishes successfully.
 - Vercel provides the network-level DDoS boundary. A published `/api/chat` WAF rule returns `429`
   for per-IP traffic above 20 requests per minute after a completed Log-mode baseline review. The
   authenticated Postgres limiter allows 10 attempts per user per minute and caps its stored counter

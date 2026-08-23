@@ -16,6 +16,7 @@ const anticipatedAssistantBytes = 20_000;
 
 export class ConversationAccessError extends Error {}
 export class ConversationStorageError extends Error {}
+export class ConversationRetryError extends Error {}
 
 export function getAttemptCompletionAction(
 	attempt: {
@@ -53,6 +54,29 @@ export function getAttemptCompletionAction(
 export function conversationTitle(content: string): string {
 	const compact = content.replace(/\s+/g, ' ').trim();
 	return compact.length > 80 ? `${compact.slice(0, 77)}…` : compact;
+}
+
+export async function loadRetryableUserMessage(
+	database: Database,
+	input: { userId: string; conversationId: string; messageId: string }
+): Promise<{ content: string; position: number }> {
+	const [ownedConversation] = await database
+		.select({ id: conversations.id })
+		.from(conversations)
+		.where(and(eq(conversations.id, input.conversationId), eq(conversations.userId, input.userId)))
+		.limit(1);
+	if (!ownedConversation) throw new ConversationAccessError('Conversation not found.');
+
+	const [latestMessage] = await database
+		.select({ id: messages.id, role: messages.role, content: messages.content, position: messages.position })
+		.from(messages)
+		.where(eq(messages.conversationId, input.conversationId))
+		.orderBy(desc(messages.position))
+		.limit(1);
+	if (!latestMessage || latestMessage.id !== input.messageId || latestMessage.role !== 'user') {
+		throw new ConversationRetryError('This response can no longer be retried.');
+	}
+	return { content: latestMessage.content, position: latestMessage.position };
 }
 
 export async function persistUserMessageForGeneration(

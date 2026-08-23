@@ -70,9 +70,8 @@ product (MVP), and possible enhancements beyond the MVP.
 ## Focused MVP
 
 The MVP is a safe, reliable, preference-aware recipe assistant. Signed-in AI conversation is now
-live; the primary remaining milestones are durable route-based conversation restoration,
-preference-aware responses, structured recipe quality, broader end-to-end testing, and production
-observability.
+live; the primary remaining milestones are structured recipe quality, broader end-to-end testing,
+conversation polish, and production observability.
 
 ### AI recipe conversation
 
@@ -87,12 +86,13 @@ observability.
   browser
 - [x] Provide clear sending, streaming, completed, cancelled, and failed states
 - [x] Allow users to stop an in-progress generation
-- [ ] Allow users to retry or regenerate a failed response
+- [x] Allow users to retry failed or stopped responses during the current browser flow without
+  duplicating their saved message
 - [x] Recover without leaking provider details from network failures, model timeouts, malformed
   responses, and rate limits
 - [x] Show exact personal daily usage and qualitative shared-capacity warnings
 
-### Next implementation slice — successful-response accounting
+### Completed implementation slice — successful-response accounting
 
 - [x] Count a request against the user's daily allowance only after the assistant response finishes
   successfully and is persisted
@@ -137,7 +137,7 @@ observability.
 - [x] Return a non-leaking 404 response for missing or cross-account conversation IDs
 - [ ] Generate useful conversation titles from the opening request
 - [ ] Allow users to rename conversations
-- [ ] Preserve message ordering and prevent duplicate messages during retries
+- [x] Preserve message ordering and prevent duplicate messages during retries
 - [ ] Automatically keep the latest streaming content visible without trapping manual scrolling
 - [x] Submit with Enter, add a new line with Shift+Enter, and keep an accessible send button
 - [ ] Confirm the complete chat flow works on mobile, tablet, and desktop layouts

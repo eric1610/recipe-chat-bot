@@ -1,0 +1,4 @@
+DROP INDEX "ai_generation_attempts_user_message_idx";--> statement-breakpoint
+CREATE INDEX "ai_generation_attempts_user_message_created_idx" ON "ai_generation_attempts" USING btree ("user_message_id","created_at");--> statement-breakpoint
+CREATE UNIQUE INDEX "ai_generation_attempts_active_message_idx" ON "ai_generation_attempts" USING btree ("user_message_id") WHERE "ai_generation_attempts"."status" in ('reserved', 'started');--> statement-breakpoint
+CREATE UNIQUE INDEX "ai_generation_attempts_completed_message_idx" ON "ai_generation_attempts" USING btree ("user_message_id") WHERE "ai_generation_attempts"."status" = 'completed';

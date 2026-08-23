@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+	AiMessageAttemptConflictError,
+	AiRetryNotAllowedError,
+	assertAiMessageAttemptAllowed,
 	createUsageSnapshot,
 	getQuotaDenial,
 	getUtcQuotaWindow,
@@ -122,5 +125,20 @@ describe('AI quota policy', () => {
 			new Date('2030-05-02T17:35:00.000Z')
 		);
 		expect(parseRetryAfter({ 'retry-after': 'Thu, 02 May 2030 17:00:00 GMT' }, now)).toBeNull();
+	});
+
+	it('allows retries only after a terminal unsuccessful attempt', () => {
+		for (const status of ['failed', 'cancelled', 'provider_limited'] as const) {
+			expect(() => assertAiMessageAttemptAllowed(status, 'retry')).not.toThrow();
+		}
+		for (const status of [null, 'reserved', 'started', 'completed'] as const) {
+			expect(() => assertAiMessageAttemptAllowed(status, 'retry')).toThrow(
+				AiRetryNotAllowedError
+			);
+		}
+		expect(() => assertAiMessageAttemptAllowed(null, 'new')).not.toThrow();
+		expect(() => assertAiMessageAttemptAllowed('failed', 'new')).toThrow(
+			AiMessageAttemptConflictError
+		);
 	});
 });

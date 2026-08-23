@@ -28,6 +28,26 @@ describe('AI chat requests', () => {
 		})).toMatchObject({ recipeSelection: { candidateId: '018f47a2-2d8e-7a15-8f7e-3123456789ab' } });
 	});
 
+	it('accepts a retry reference without accepting replacement content', () => {
+		expect(parseChatGenerationRequest({
+			conversationId: '018f47a2-2d8e-7a15-8f7e-0123456789ab',
+			message: { id: '018f47a2-2d8e-7a15-8f7e-1123456789ab' },
+			retry: true
+		})).toEqual({
+			conversationId: '018f47a2-2d8e-7a15-8f7e-0123456789ab',
+			message: { id: '018f47a2-2d8e-7a15-8f7e-1123456789ab' },
+			retry: true
+		});
+		expect(() => parseChatGenerationRequest({
+			conversationId: '018f47a2-2d8e-7a15-8f7e-0123456789ab',
+			message: {
+				id: '018f47a2-2d8e-7a15-8f7e-1123456789ab',
+				content: 'Replace the original request'
+			},
+			retry: true
+		})).toThrow('one valid message');
+	});
+
 	it('rejects client-supplied history and oversized messages', () => {
 		expect(() =>
 			parseChatGenerationRequest({

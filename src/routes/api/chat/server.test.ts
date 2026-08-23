@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
 	consumeRateLimit: vi.fn(),
 	createOpenRouter: vi.fn(),
 	getRecentConversationContext: vi.fn(),
+	loadRetryableUserMessage: vi.fn(),
 	getUtcQuotaWindow: vi.fn(),
 	loadUserPreferences: vi.fn(),
 	markAiAttemptFailed: vi.fn(),
@@ -14,6 +15,7 @@ const mocks = vi.hoisted(() => ({
 	persistDeclaredAllergies: vi.fn(),
 	reserveAiQuota: vi.fn(),
 	resolveRecipeSelection: vi.fn(),
+	resolveRetryRecipeSelection: vi.fn(),
 	streamText: vi.fn()
 }));
 
@@ -30,7 +32,10 @@ vi.mock('$lib/server/allergens', () => ({
 	persistDeclaredAllergies: mocks.persistDeclaredAllergies
 }));
 vi.mock('$lib/server/ai/persistence', () => ({
+	ConversationAccessError: class ConversationAccessError extends Error {},
+	ConversationRetryError: class ConversationRetryError extends Error {},
 	getRecentConversationContext: mocks.getRecentConversationContext,
+	loadRetryableUserMessage: mocks.loadRetryableUserMessage,
 	persistCompletedAssistant: mocks.persistCompletedAssistant,
 	persistUserMessageForGeneration: mocks.persistUserMessageForGeneration
 }));
@@ -52,7 +57,8 @@ vi.mock('$lib/server/security/limits', () => ({ consumeRateLimit: mocks.consumeR
 vi.mock('$lib/server/recipes/persistence', () => ({
 	RecipeSearchAccessError: class RecipeSearchAccessError extends Error {},
 	RecipeSearchExpiredError: class RecipeSearchExpiredError extends Error {},
-	resolveRecipeSelection: mocks.resolveRecipeSelection
+	resolveRecipeSelection: mocks.resolveRecipeSelection,
+	resolveRetryRecipeSelection: mocks.resolveRetryRecipeSelection
 }));
 
 const database = {
@@ -65,6 +71,7 @@ const database = {
 
 import { POST } from './+server';
 import { APICallError } from 'ai';
+import { AiRetryNotAllowedError } from '$lib/server/ai/quota';
 
 const conversationId = '018f47a2-2d8e-7a15-8f7e-0123456789ab';
 const messageId = '018f47a2-2d8e-7a15-8f7e-1123456789ab';
@@ -80,6 +87,17 @@ function chatRequest() {
 			conversationId,
 			message: { id: messageId, content: 'Make dinner' }
 		})
+	});
+}
+
+function retryRequest() {
+	return new Request('https://recipe.example/api/chat', {
+		method: 'POST',
+		headers: {
+			'content-type': 'application/json',
+			origin: 'https://recipe.example'
+		},
+		body: JSON.stringify({ conversationId, message: { id: messageId }, retry: true })
 	});
 }
 
@@ -106,6 +124,8 @@ describe('preference-aware chat generation', () => {
 			householdSize: 2,
 			notes: ''
 		});
+		mocks.loadRetryableUserMessage.mockResolvedValue({ content: 'Make dinner', position: 0 });
+		mocks.resolveRetryRecipeSelection.mockResolvedValue(null);
 		mocks.getUtcQuotaWindow.mockReturnValue({
 			start: new Date('2030-05-02T00:00:00.000Z'),
 			end: new Date('2030-05-03T00:00:00.000Z')
@@ -235,6 +255,66 @@ describe('preference-aware chat generation', () => {
 		}));
 		expect(mocks.persistDeclaredAllergies).not.toHaveBeenCalled();
 		expect(mocks.streamText.mock.calls[0][0].instructions).toContain('Selected recipe facts');
+	});
+
+	it('retries a server-owned user message without persisting or extracting it again', async () => {
+		const response = await post(retryRequest());
+
+		expect(response.status).toBe(200);
+		expect(mocks.reserveAiQuota).toHaveBeenCalledWith(
+			database,
+			expect.objectContaining({
+				userId: 'user-1',
+				conversationId,
+				userMessageId: messageId,
+				mode: 'retry'
+			}),
+			expect.any(Function)
+		);
+		expect(mocks.loadRetryableUserMessage).toHaveBeenCalledWith(
+			database,
+			expect.objectContaining({ userId: 'user-1', messageId })
+		);
+		expect(mocks.persistUserMessageForGeneration).not.toHaveBeenCalled();
+		expect(mocks.persistDeclaredAllergies).not.toHaveBeenCalled();
+		expect(mocks.streamText).toHaveBeenCalledWith(
+			expect.objectContaining({ messages: [{ role: 'user', content: 'Make dinner' }] })
+		);
+	});
+
+	it('restores server-owned recipe source instructions for a retry', async () => {
+		mocks.resolveRetryRecipeSelection.mockResolvedValue({
+			content: 'Make dinner',
+			instructions: '\nSelected retry source facts'
+		});
+
+		await post(retryRequest());
+
+		expect(mocks.streamText.mock.calls[0][0].instructions).toContain(
+			'Selected retry source facts'
+		);
+	});
+
+	it('rejects stale or mismatched retry state without provider access', async () => {
+		mocks.resolveRetryRecipeSelection.mockResolvedValueOnce({
+			content: 'A different stored selection',
+			instructions: 'Must not be used'
+		});
+		await expect(post(retryRequest())).rejects.toMatchObject({
+			status: 409,
+			body: { message: 'This response can no longer be retried.' }
+		});
+		expect(mocks.streamText).not.toHaveBeenCalled();
+
+		mocks.resolveRetryRecipeSelection.mockResolvedValue(null);
+		mocks.reserveAiQuota.mockRejectedValueOnce(
+			new AiRetryNotAllowedError('internal retry state')
+		);
+		await expect(post(retryRequest())).rejects.toMatchObject({
+			status: 409,
+			body: { message: 'This response can no longer be retried.' }
+		});
+		expect(mocks.streamText).not.toHaveBeenCalled();
 	});
 
 	it('persists a completed response before charging successful usage', async () => {

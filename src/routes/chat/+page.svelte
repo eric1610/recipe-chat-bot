@@ -4,6 +4,7 @@
 	import type { PendingRecipeSearchView, RecipeCandidateView } from '$lib/recipes/types';
 	import type { AiUsageSnapshot } from '$lib/chat/usage';
 	import { shouldSubmitComposer } from '$lib/chat/composer';
+	import { useChatRetryState } from '$lib/chat/retry-state.svelte';
 	import { base } from '$app/paths';
 	import { goto, invalidateAll } from '$app/navigation';
 	import { Chat } from '@ai-sdk/svelte';
@@ -30,16 +31,28 @@
 	type RecipeUiMessage = UIMessage<{ position?: number; createdAt?: string; recipeSearch?: PendingRecipeSearchView }>;
 	let draftConversation = $state<StoredConversation | null>(null);
 	let currentConversation = $derived(draftConversation ?? data.currentConversation);
+	const chatRetryState = useChatRetryState();
 	let draft = $state('');
 	let pendingDraft = $state('');
 	let chatError = $state('');
+	let retryNoticeInitialized = false;
 	let refreshedUsage = $state<AiUsageSnapshot | null>(null);
 	let aiUsage = $derived(refreshedUsage ?? data.aiUsage);
 	let persistedConversationId = $state<string | null>(null);
+	let retrying = false;
 	let generationSettled = false;
 	let sourceSearchPending = $state(false);
 	let loadedConversationId = $derived(data.currentConversation?.id);
 	let composer: HTMLTextAreaElement;
+
+	$effect(() => {
+		if (retryNoticeInitialized) return;
+		retryNoticeInitialized = true;
+		const pendingRetry = chatRetryState.current;
+		if (pendingRetry && pendingRetry.conversationId === data.currentConversation?.id) {
+			chatError = pendingRetry.notice;
+		}
+	});
 
 	function initialMessages(): RecipeUiMessage[] {
 		return data.messages.map(toUiMessage);
@@ -66,9 +79,20 @@
 			fetch: async (input, init) => {
 				const response = await fetch(input, init);
 				persistedConversationId = response.headers.get('x-conversation-id');
+				if (!response.ok && !persistedConversationId && !retrying) chatRetryState.clear();
+				if (retrying && response.status === 409) chatRetryState.clear();
 				return response;
 			},
-			prepareSendMessagesRequest: ({ messages, body }) => {
+			prepareSendMessagesRequest: ({ messages, body, trigger, messageId }) => {
+				if (trigger === 'regenerate-message') {
+					return {
+						body: {
+							conversationId: body?.conversationId,
+							message: { id: messageId },
+							retry: true
+						}
+					};
+				}
 				const message = messages.findLast((candidate) => candidate.role === 'user');
 				if (body?.recipeSelection) {
 					return {
@@ -93,12 +117,23 @@
 		}),
 		onError: (cause) => {
 			chatError = cause.message;
+			if (chatRetryState.current) {
+				chatRetryState.set({ ...chatRetryState.current, notice: cause.message });
+			}
 			if (!persistedConversationId) draft = pendingDraft;
 			void refreshAfterGeneration();
 		},
 		onFinish: ({ isAbort, isError }) => {
-			if (isAbort) chatError = 'Response stopped. Your message remains saved.';
-			if (!isError) pendingDraft = '';
+			if (isAbort && chatRetryState.current) {
+				chatError = 'Response stopped. Your message remains saved.';
+				chatRetryState.set({ ...chatRetryState.current, notice: chatError });
+			}
+			if (!isAbort && !isError) {
+				pendingDraft = '';
+				chatRetryState.clear();
+				chatError = '';
+			}
+			retrying = false;
 			void refreshAfterGeneration();
 		}
 	});
@@ -176,6 +211,8 @@
 		if (!content || sending || quotaExhausted) return;
 
 		chatError = '';
+		chatRetryState.clear();
+		retrying = false;
 		generationSettled = false;
 		persistedConversationId = null;
 		pendingDraft = content;
@@ -222,6 +259,11 @@
 				return;
 			}
 			sourceSearchPending = false;
+			chatRetryState.set({
+				conversationId: conversation.id,
+				userMessageId: userMessage.id,
+				notice: 'The response did not finish.'
+			});
 			await chat.sendMessage(
 				userMessage,
 				{ body: { conversationId: conversation.id } }
@@ -239,10 +281,17 @@
 		chatError = '';
 		generationSettled = false;
 		persistedConversationId = null;
+		retrying = false;
 		const content = `Use “${candidate.title}” from ${candidate.domain}.`;
+		const userMessageId = crypto.randomUUID();
 		try {
+			chatRetryState.set({
+				conversationId: currentConversation.id,
+				userMessageId,
+				notice: 'The response did not finish.'
+			});
 			await chat.sendMessage({
-				id: crypto.randomUUID(),
+				id: userMessageId,
 				role: 'user',
 				parts: [{ type: 'text', text: content }],
 				metadata: { createdAt: new Date().toISOString() }
@@ -254,6 +303,25 @@
 			});
 		} catch (cause) {
 			chatError = cause instanceof Error ? cause.message : 'The selected recipe source could not be used.';
+			await refreshAfterGeneration();
+		}
+	}
+
+	async function retryResponse() {
+		const retry = chatRetryState.current;
+		if (!retry || sending || quotaExhausted || retry.conversationId !== currentConversation?.id) return;
+		chatError = '';
+		generationSettled = false;
+		persistedConversationId = null;
+		retrying = true;
+		try {
+			await chat.regenerate({
+				messageId: retry.userMessageId,
+				body: { conversationId: retry.conversationId }
+			});
+		} catch (cause) {
+			chatError = cause instanceof Error ? cause.message : 'The recipe assistant could not respond.';
+			chatRetryState.set({ ...retry, notice: chatError });
 			await refreshAfterGeneration();
 		}
 	}
@@ -443,7 +511,16 @@
 						{/if}
 					</div>
 				{/if}
-				{#if chatError}<p class="mt-6 rounded-container bg-recipe-red p-3 text-sm font-bold text-recipe-red-ink" role="alert">{chatError}</p>{/if}
+				{#if chatError}
+					<div class="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-container bg-recipe-red p-3 text-sm font-bold text-recipe-red-ink" role="alert">
+						<p>{chatError}</p>
+						{#if chatRetryState.current?.conversationId === currentConversation?.id}
+							<button class="btn preset-tonal-surface" type="button" onclick={retryResponse} disabled={sending || quotaExhausted}>
+								Retry response
+							</button>
+						{/if}
+					</div>
+				{/if}
 			</section>
 
 			<div class="sticky bottom-0 z-10 border-t border-surface-300-700 bg-surface-50/90 p-4 backdrop-blur-xl dark:bg-recipe-midnight/90 sm:p-6">

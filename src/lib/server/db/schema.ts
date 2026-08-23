@@ -10,6 +10,7 @@ import {
 	uniqueIndex,
 	uuid
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 import type { CookingSkill, MessageRole } from '$lib/chat/types';
 import type { RecipeFacts, StoredRecipeCandidate } from '$lib/recipes/types';
 
@@ -299,7 +300,16 @@ export const aiGenerationAttempts = pgTable(
 		completedAt: timestamp('completed_at', { withTimezone: true })
 	},
 	(attempt) => [
-		uniqueIndex('ai_generation_attempts_user_message_idx').on(attempt.userMessageId),
+		index('ai_generation_attempts_user_message_created_idx').on(
+			attempt.userMessageId,
+			attempt.createdAt
+		),
+		uniqueIndex('ai_generation_attempts_active_message_idx')
+			.on(attempt.userMessageId)
+			.where(sql`${attempt.status} in ('reserved', 'started')`),
+		uniqueIndex('ai_generation_attempts_completed_message_idx')
+			.on(attempt.userMessageId)
+			.where(sql`${attempt.status} = 'completed'`),
 		index('ai_generation_attempts_user_window_idx').on(attempt.userId, attempt.windowStart),
 		index('ai_generation_attempts_created_idx').on(attempt.createdAt)
 	]

@@ -30,7 +30,19 @@ const recipeSelectionRequestSchema = z
 	})
 	.strict();
 
-const chatRequestSchema = z.union([standardChatRequestSchema, recipeSelectionRequestSchema]);
+const retryChatRequestSchema = z
+	.object({
+		conversationId: z.string().uuid(),
+		message: z.object({ id: z.string().uuid() }).strict(),
+		retry: z.literal(true)
+	})
+	.strict();
+
+const chatRequestSchema = z.union([
+	standardChatRequestSchema,
+	recipeSelectionRequestSchema,
+	retryChatRequestSchema
+]);
 
 export type ChatGenerationRequest = {
 	conversationId: string;
@@ -42,6 +54,10 @@ export type ChatGenerationRequest = {
 	conversationId: string;
 	message: { id: string };
 	recipeSelection: { searchId: string; candidateId: string };
+} | {
+	conversationId: string;
+	message: { id: string };
+	retry: true;
 };
 
 export interface ContextMessage {

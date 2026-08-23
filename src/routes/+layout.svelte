@@ -1,8 +1,18 @@
 <script lang="ts">
 	import favicon from '$lib/assets/favicon.svg';
+	import { provideChatRetryState } from '$lib/chat/retry-state.svelte';
+	import { afterNavigate } from '$app/navigation';
+	import { base } from '$app/paths';
 	import '../app.css';
 
 	let { children } = $props();
+	const chatRetryState = provideChatRetryState();
+
+	afterNavigate(({ to }) => {
+		const pending = chatRetryState.current;
+		if (!pending) return;
+		if (to?.url.pathname !== `${base}/chat/${pending.conversationId}`) chatRetryState.clear();
+	});
 </script>
 
 <svelte:head>

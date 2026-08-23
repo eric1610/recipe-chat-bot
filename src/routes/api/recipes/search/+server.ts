@@ -34,7 +34,9 @@ export function _createRecipeSearchHandler(dependencies: RecipeSearchDependencie
 	} catch (cause) {
 		error(400, cause instanceof Error ? cause.message : 'The recipe search request is invalid.');
 	}
-	if ('recipeSelection' in payload) error(400, 'The recipe search request is invalid.');
+	if ('recipeSelection' in payload || 'retry' in payload) {
+		error(400, 'The recipe search request is invalid.');
+	}
 	const intent = detectRecipeLookupIntent(payload.message.content);
 	const config = dependencies.getConfig();
 	if (!intent || !config.enabled) {
