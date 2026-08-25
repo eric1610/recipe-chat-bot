@@ -2,6 +2,7 @@ import { env } from '$env/dynamic/private';
 import { cleanupAiQuota, type AiCleanupResult } from '$lib/server/ai/cleanup';
 import { getDatabase, type Database } from '$lib/server/db';
 import { cleanupRecipeSearchData } from '$lib/server/recipes/persistence';
+import { logOperationalEvent } from '$lib/server/observability/log';
 import {
 	isCronAuthorizationValid,
 	isCronSecretConfigured
@@ -12,7 +13,7 @@ interface CronCleanupDependencies {
 	getSecret: () => string | undefined;
 	getDatabase: () => Database;
 	cleanup: (database: Database) => Promise<AiCleanupResult>;
-	logFailure: () => void;
+	logFailure: (requestId: string) => void;
 }
 
 function json(body: unknown, status: number): Response {
@@ -23,7 +24,7 @@ function json(body: unknown, status: number): Response {
 }
 
 export function _createCronCleanupHandler(dependencies: CronCleanupDependencies): RequestHandler {
-	return async ({ request }) => {
+	return async ({ request, locals }) => {
 		const secret = dependencies.getSecret();
 		if (!isCronSecretConfigured(secret)) {
 			return json({ ok: false, error: 'Cron cleanup is not configured.' }, 503);
@@ -36,7 +37,7 @@ export function _createCronCleanupHandler(dependencies: CronCleanupDependencies)
 			const result = await dependencies.cleanup(dependencies.getDatabase());
 			return json({ ok: true, ...result }, 200);
 		} catch {
-			dependencies.logFailure();
+			dependencies.logFailure(locals.requestId);
 			return json({ ok: false, error: 'Quota cleanup failed.' }, 500);
 		}
 	};
@@ -49,5 +50,15 @@ export const GET: RequestHandler = _createCronCleanupHandler({
 		...(await cleanupAiQuota(database)),
 		...(await cleanupRecipeSearchData(database))
 	}),
-	logFailure: () => console.error('Scheduled data cleanup failed.')
+	logFailure: (requestId) =>
+		logOperationalEvent({
+			level: 'error',
+			event: 'cron.cleanup_failure',
+			subsystem: 'cron',
+			requestId,
+			route: '/api/cron/ai-quota-cleanup',
+			method: 'GET',
+			status: 500,
+			code: 'cleanup_failed'
+		})
 });

@@ -8,7 +8,8 @@ function event(authorization?: string) {
 	return {
 		request: new Request('https://example.test/api/cron/ai-quota-cleanup', {
 			headers: authorization ? { authorization } : undefined
-		})
+		}),
+		locals: { requestId: 'request-123' }
 	} as Parameters<ReturnType<typeof _createCronCleanupHandler>>[0];
 }
 
@@ -75,6 +76,6 @@ describe('AI quota cleanup endpoint', () => {
 		expect(response.status).toBe(500);
 		expect(response.headers.get('cache-control')).toBe('private, no-store');
 		expect(await response.text()).not.toContain('database details');
-		expect(logFailure).toHaveBeenCalledWith();
+		expect(logFailure).toHaveBeenCalledWith('request-123');
 	});
 });

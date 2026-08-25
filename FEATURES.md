@@ -138,7 +138,7 @@ conversation polish, and production observability.
 - [ ] Generate useful conversation titles from the opening request
 - [ ] Allow users to rename conversations
 - [x] Preserve message ordering and prevent duplicate messages during retries
-- [ ] Automatically keep the latest streaming content visible without trapping manual scrolling
+- [x] Automatically keep the latest streaming content visible without trapping manual scrolling
 - [x] Submit with Enter, add a new line with Shift+Enter, and keep an accessible send button
 - [ ] Confirm the complete chat flow works on mobile, tablet, and desktop layouts
 - [ ] Confirm the complete chat flow works with keyboard navigation and screen readers
@@ -160,8 +160,8 @@ conversation polish, and production observability.
   boundaries
 - [ ] Add broader tests for authenticated persistence, deletion, browser navigation, streaming,
   cancellation, retries, and AI failures
-- [ ] Add structured production logging without recording secrets or unnecessary conversation data
-- [ ] Add error monitoring and health visibility for the application, database, and AI provider
+- [x] Add structured production logging without recording secrets or unnecessary conversation data
+- [x] Add error monitoring and health visibility for the application, database, and AI provider
 - [x] Track per-user/shared request attempts and token consumption without duplicating message text
 - [x] Keep exact shared usage counts server-side while exposing only qualitative capacity states
 - [ ] Track end-to-end model latency and paid-model cost

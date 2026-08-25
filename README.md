@@ -60,10 +60,12 @@ pnpm run db:generate
    - `https://YOUR_DOMAIN/auth/callback/google`
    - `https://YOUR_DOMAIN/auth/callback/github`
 3. Add `DATABASE_URL`, `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `AUTH_GITHUB_ID`,
-   `AUTH_GITHUB_SECRET`, `OPENROUTER_API_KEY`, `AI_DAILY_CAP_EXEMPT_EMAILS`, and `CRON_SECRET` as
+   `AUTH_GITHUB_SECRET`, `OPENROUTER_API_KEY`, `AI_DAILY_CAP_EXEMPT_EMAILS`, `CRON_SECRET`, and
+   `HEALTH_CHECK_SECRET` as
    **Sensitive, Production-only** Vercel
-   variables. Generate `CRON_SECRET` independently with `openssl rand -hex 32`. The exemption
-   variable is a comma-separated server-side allowlist and bypasses only the personal AI cap. Set
+   variables. Generate the cron and health secrets independently with `openssl rand -hex 32`. The
+   exemption variable is a comma-separated server-side allowlist and bypasses only the personal AI
+   cap. Set
    `RECIPE_WEB_SEARCH_ENABLED=true` and optionally `RECIPE_SEARCH_DAILY_CAP` only after applying the
    recipe migrations. Metadata-only links still work when the approved-source registry is empty.
 4. Use a least-privileged Neon role for the runtime `DATABASE_URL`. Keep the schema-owner migration
@@ -82,6 +84,13 @@ pnpm run db:generate
    invocation.
 9. In Vercel Firewall, rate-limit `POST /api/chat` by IP. Begin with a 20-request/60-second fixed
 	window in Log mode, observe production traffic for 24 hours, and then enforce the rule with `429`.
+
+`GET /api/health` returns only an aggregate `ok`, `degraded`, or `unavailable` state and can be used
+as a public uptime target. Send `Authorization: Bearer HEALTH_CHECK_SECRET` to receive sanitized
+application, database, and AI-provider component states. The AI check is passive: it uses
+configuration and recent classified outcomes and never consumes an OpenRouter request. Operational
+failures are emitted as one-line JSON events in Vercel runtime logs; they intentionally exclude
+request content, account identifiers, credentials, upstream payloads, and raw exception details.
 
 Vercel Hobby is intended for personal, non-commercial projects. Choose a suitable paid or
 commercial host before using the application commercially.

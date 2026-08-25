@@ -2,6 +2,7 @@ import { env } from '$env/dynamic/private';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { APICallError, streamText, type LanguageModelUsage, type ModelMessage } from 'ai';
 import { getDatabase } from '$lib/server/db';
+import { logOperationalEvent } from '$lib/server/observability/log';
 import { persistDeclaredAllergies } from '$lib/server/allergens';
 import { users } from '$lib/server/db/schema';
 import { classifyProviderFailure } from '$lib/server/ai/errors';
@@ -211,6 +212,16 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 		if (handledError) return;
 		handledError = true;
 		const failure = classifyProviderFailure(cause);
+		logOperationalEvent({
+			level: failure.code === 'provider_rate_limit' ? 'warn' : 'error',
+			event: 'ai.provider_failure',
+			subsystem: 'ai_provider',
+			requestId: locals.requestId,
+			route: '/api/chat',
+			method: 'POST',
+			status: failure.code === 'provider_rate_limit' ? 429 : 503,
+			code: failure.code
+		});
 		if (failure.code === 'provider_rate_limit') {
 			await markOpenRouterLimited(
 				database,
@@ -272,6 +283,16 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 					});
 				} catch {
 					await markAiAttemptFailed(database, attemptId, 'assistant_persistence_failed');
+					logOperationalEvent({
+						level: 'error',
+						event: 'ai.persistence_failure',
+						subsystem: 'database',
+						requestId: locals.requestId,
+						route: '/api/chat',
+						method: 'POST',
+						status: 500,
+						code: 'assistant_persistence_failed'
+					});
 					throw new Error('The completed response could not be saved.');
 				}
 			},

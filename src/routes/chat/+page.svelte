@@ -4,6 +4,7 @@
 	import type { PendingRecipeSearchView, RecipeCandidateView } from '$lib/recipes/types';
 	import type { AiUsageSnapshot } from '$lib/chat/usage';
 	import { shouldSubmitComposer } from '$lib/chat/composer';
+	import { shouldFollowLatest } from '$lib/chat/scroll';
 	import { useChatRetryState } from '$lib/chat/retry-state.svelte';
 	import { base } from '$app/paths';
 	import { goto, invalidateAll } from '$app/navigation';
@@ -44,6 +45,54 @@
 	let sourceSearchPending = $state(false);
 	let loadedConversationId = $derived(data.currentConversation?.id);
 	let composer: HTMLTextAreaElement;
+	let messageViewport: HTMLDivElement;
+	let messageContent = $state<HTMLDivElement>();
+	let followingLatest = $state(true);
+	let scrollFrame: number | null = null;
+
+	function prefersReducedMotion(): boolean {
+		return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+	}
+
+	function scrollToLatest(behavior: ScrollBehavior = 'auto') {
+		if (!messageViewport) return;
+		followingLatest = true;
+		messageViewport.scrollTo({ top: messageViewport.scrollHeight, behavior });
+	}
+
+	function scheduleScrollToLatest() {
+		if (!followingLatest || scrollFrame !== null) return;
+		scrollFrame = requestAnimationFrame(() => {
+			scrollFrame = null;
+			scrollToLatest();
+		});
+	}
+
+	function handleMessageScroll() {
+		followingLatest = shouldFollowLatest(messageViewport);
+	}
+
+	function jumpToLatest() {
+		scrollToLatest(prefersReducedMotion() ? 'auto' : 'smooth');
+	}
+
+	function resumeFollowing() {
+		followingLatest = true;
+		void tick().then(scheduleScrollToLatest);
+	}
+
+	$effect(() => {
+		const content = messageContent;
+		if (!content || typeof ResizeObserver === 'undefined') return;
+		const observer = new ResizeObserver(scheduleScrollToLatest);
+		observer.observe(content);
+		scheduleScrollToLatest();
+		return () => {
+			observer.disconnect();
+			if (scrollFrame !== null) cancelAnimationFrame(scrollFrame);
+			scrollFrame = null;
+		};
+	});
 
 	$effect(() => {
 		if (retryNoticeInitialized) return;
@@ -216,6 +265,7 @@
 		generationSettled = false;
 		persistedConversationId = null;
 		pendingDraft = content;
+		resumeFollowing();
 		const conversation = localConversation(content);
 		draftConversation = conversation;
 		draft = '';
@@ -282,6 +332,7 @@
 		generationSettled = false;
 		persistedConversationId = null;
 		retrying = false;
+		resumeFollowing();
 		const content = `Use “${candidate.title}” from ${candidate.domain}.`;
 		const userMessageId = crypto.randomUUID();
 		try {
@@ -314,6 +365,7 @@
 		generationSettled = false;
 		persistedConversationId = null;
 		retrying = true;
+		resumeFollowing();
 		try {
 			await chat.regenerate({
 				messageId: retry.userMessageId,
@@ -360,7 +412,7 @@
 	<meta name="robots" content="noindex,follow" />
 </svelte:head>
 
-<div class="grid min-h-svh bg-transparent lg:grid-cols-[19rem_minmax(0,1fr)]">
+<div class="grid h-svh overflow-hidden bg-transparent lg:grid-cols-[19rem_minmax(0,1fr)]">
 	<aside
 		class="hidden max-h-svh border-r border-surface-300-700 bg-surface-100-900/90 lg:sticky lg:top-0 lg:block"
 		aria-labelledby="desktop-history-title"
@@ -390,7 +442,7 @@
 		</div>
 	</aside>
 
-	<div class="flex min-h-svh min-w-0 flex-col">
+	<div class="flex h-svh min-w-0 flex-col overflow-hidden">
 		<header
 			class="sticky top-0 z-20 flex h-[4.75rem] shrink-0 items-center justify-between gap-4 border-b border-surface-300-700 bg-surface-50/90 px-4 backdrop-blur-xl dark:bg-recipe-midnight/90 sm:px-6"
 		>
@@ -462,7 +514,12 @@
 
 		<main class="flex min-h-0 flex-1 flex-col" aria-labelledby="chat-title">
 			{#if form?.deleteError}<p class="mx-auto mt-4 w-full max-w-4xl rounded-container bg-recipe-red p-3 text-sm text-recipe-red-ink" role="alert">{form.deleteError}</p>{/if}
-			<section class="mx-auto flex w-full max-w-4xl flex-1 flex-col px-4 py-10 sm:px-8 sm:py-14">
+			<div
+				class="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+				bind:this={messageViewport}
+				onscroll={handleMessageScroll}
+			>
+			<section class="mx-auto flex min-h-full w-full max-w-4xl flex-col px-4 py-10 sm:px-8 sm:py-14">
 				{#if chat.messages.length === 0}
 					<div class="my-auto">
 						<div class="mx-auto w-full max-w-3xl text-center">
@@ -491,7 +548,7 @@
 					</div>
 				{:else}
 					<h1 id="chat-title" class="sr-only">{currentConversation?.title ?? 'Recipe conversation'}</h1>
-					<div class="grid gap-5" aria-live="polite">
+					<div class="grid gap-5" aria-live="polite" bind:this={messageContent}>
 						{#each chat.messages as message (message.id)}
 							<article class={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
 								<div class={`max-w-[85%] rounded-container px-4 py-3 text-sm leading-6 sm:max-w-[75%] ${message.role === 'user' ? 'bg-primary-500 text-primary-contrast-500' : 'bg-surface-100-900 text-surface-950-50 ring-1 ring-surface-300-700'}`}>
@@ -522,8 +579,18 @@
 					</div>
 				{/if}
 			</section>
+			</div>
 
-			<div class="sticky bottom-0 z-10 border-t border-surface-300-700 bg-surface-50/90 p-4 backdrop-blur-xl dark:bg-recipe-midnight/90 sm:p-6">
+			<div class="relative z-10 shrink-0 border-t border-surface-300-700 bg-surface-50/90 p-4 backdrop-blur-xl dark:bg-recipe-midnight/90 sm:p-6">
+				{#if !followingLatest && chat.messages.length > 0}
+					<button
+						class="btn preset-tonal-surface absolute left-1/2 top-0 -translate-x-1/2 -translate-y-[calc(100%+1rem)] font-bold shadow-lg"
+						type="button"
+						onclick={jumpToLatest}
+					>
+						Jump to latest
+					</button>
+				{/if}
 				{#if aiUsage}
 					<div class="mx-auto mb-3 flex max-w-4xl flex-wrap items-center justify-between gap-2 text-xs" aria-live="polite">
 						<p class="font-bold text-surface-700-300">
